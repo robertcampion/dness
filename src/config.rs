@@ -248,7 +248,10 @@ fn porkbun_base_url() -> String {
     String::from("https://api.porkbun.com/api/json/v3")
 }
 
-pub fn parse_config<P: AsRef<Path>>(path: P) -> Result<DnsConfig, ConfigError> {
+pub fn parse_config<P: AsRef<Path>>(
+    path: P,
+    env: &HashMap<String, String>,
+) -> Result<DnsConfig, ConfigError> {
     let mut f = File::open(path).map_err(|e| ConfigError {
         kind: ConfigErrorKind::FileNotFound(e),
     })?;
@@ -268,9 +271,8 @@ pub fn parse_config<P: AsRef<Path>>(path: P) -> Result<DnsConfig, ConfigError> {
     handlebars.register_escape_fn(handlebars::no_escape);
     handlebars.set_strict_mode(true);
 
-    let data: HashMap<_, _> = std::env::vars().collect();
     let config_contents = handlebars
-        .render("dness_config", &data)
+        .render("dness_config", env)
         .map_err(|e| ConfigError {
             kind: ConfigErrorKind::Render(e),
         })?;
@@ -423,8 +425,10 @@ mod tests {
 
     #[test]
     fn deserialize_config_readme() {
-        std::env::set_var("MY_CLOUDFLARE_TOKEN", "dec0de");
-        let config = parse_config("assets/readme-config.toml").unwrap();
+        let env = vec![("MY_CLOUDFLARE_TOKEN".to_owned(), "dec0de".to_owned())]
+            .into_iter()
+            .collect();
+        let config = parse_config("assets/readme-config.toml", &env).unwrap();
         assert_eq!(
             config,
             DnsConfig {
@@ -459,7 +463,7 @@ mod tests {
 
     #[test]
     fn deserialize_config_readme_bad() {
-        let err = parse_config("assets/readme-config-bad.toml").unwrap_err();
+        let err = parse_config("assets/readme-config-bad.toml", &Default::default()).unwrap_err();
         let msg = format!("{:?}", err);
         assert!(msg.contains("I_DO_NOT_EXIST"));
     }

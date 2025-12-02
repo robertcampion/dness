@@ -64,7 +64,7 @@ fn init_logging(lvl: LevelFilter) {
 fn init_configuration<T: AsRef<Path>>(file: Option<T>) -> DnsConfig {
     if let Some(config_file) = file {
         let path = config_file.as_ref();
-        match parse_config(path) {
+        match parse_config(path, &std::env::vars().collect()) {
             Ok(c) => c,
             Err(e) => {
                 // If there is an error during configuration, we assume a log level of Warn so that

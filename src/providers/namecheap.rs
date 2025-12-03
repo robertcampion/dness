@@ -1,12 +1,12 @@
 use std::net::{IpAddr, Ipv4Addr};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use log::{info, warn};
 use serde::Deserialize;
 
 use crate::core::Updates;
 use crate::dns::DnsResolver;
-use crate::errors::DnessError;
+use crate::errors::ClientErrorWrapper as _;
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
@@ -42,17 +42,11 @@ impl NamecheapProvider<'_> {
                 ("password", &self.config.ddns_password),
                 ("ip", &wan.to_string()),
             ])
-            .send()
-            .await
-            .map_err(|e| DnessError::send_http(&get_url, "namecheap update", e))?
-            .error_for_status()
-            .map_err(|e| DnessError::bad_response(&get_url, "namecheap update", e))?
-            .text()
-            .await
-            .map_err(|e| DnessError::deserialize(&get_url, "namecheap update", e))?;
+            .send_text("namecheap update")
+            .await?;
 
         if !response.contains("<ErrCount>0</ErrCount>") {
-            Err(DnessError::message(format!(
+            Err(anyhow!(format!(
                 "expected zero errors, but received: {}",
                 response
             )))

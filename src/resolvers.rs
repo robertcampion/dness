@@ -1,13 +1,13 @@
 use std::net::IpAddr;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use hickory_resolver::config::ResolverConfig;
 use serde::Deserialize;
 
 use crate::config::DnsConfig;
 use crate::core::IpType;
 use crate::dns::{config_opendns, DnsResolver};
-use crate::errors::{DnessError, DnsError};
+use crate::errors::{ClientErrorWrapper as _, DnsError};
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Debug, Default)]
 #[serde(rename_all = "lowercase")]
@@ -34,20 +34,11 @@ async fn ipify_resolve_ip(client: &reqwest::Client, ip_type: IpType) -> Result<I
         IpType::V4 => "https://api.ipify.org/",
         IpType::V6 => "https://api6.ipify.org/",
     };
-    let ip_text = client
-        .get(ipify_url)
-        .send()
-        .await
-        .map_err(|e| DnessError::send_http(ipify_url, "ipify get ip", e))?
-        .error_for_status()
-        .map_err(|e| DnessError::bad_response(ipify_url, "ipify get ip", e))?
-        .text()
-        .await
-        .map_err(|e| DnessError::deserialize(ipify_url, "ipify get ip", e))?;
+    let ip_text = client.get(ipify_url).send_text("ipify get ip").await?;
 
     let ip = ip_text
         .parse::<IpAddr>()
-        .map_err(|_| DnessError::message(format!("unable to parse {} as an ip", &ip_text)))?;
+        .map_err(|_| anyhow!(format!("unable to parse {} as an ip", &ip_text)))?;
     Ok(ip)
 }
 

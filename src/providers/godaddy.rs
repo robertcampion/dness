@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::core::Updates;
-use crate::errors::DnessError;
+use crate::errors::ClientErrorWrapper as _;
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
@@ -59,19 +59,11 @@ impl GoClient<'_> {
 
     async fn fetch_records(&self) -> Result<Vec<GoRecord>> {
         let get_url = format!("{}/v1/domains/{}/records/A", self.base_url, self.domain);
-        let response = self
-            .client
+        self.client
             .get(&get_url)
             .header("Authorization", self.auth_header())
-            .send()
+            .send_json("godaddy fetch records")
             .await
-            .map_err(|e| DnessError::send_http(&get_url, "godaddy fetch records", e))?
-            .error_for_status()
-            .map_err(|e| DnessError::bad_response(&get_url, "godaddy fetch records", e))?
-            .json()
-            .await
-            .map_err(|e| DnessError::deserialize(&get_url, "godaddy fetch records", e))?;
-        Ok(response)
     }
 
     async fn update_record(&self, record: &GoRecord, addr: Ipv4Addr) -> Result<()> {
@@ -87,11 +79,8 @@ impl GoClient<'_> {
                 data: addr.to_string(),
                 ..record.clone()
             }])
-            .send()
-            .await
-            .map_err(|e| DnessError::send_http(&put_url, "godaddy update records", e))?
-            .error_for_status()
-            .map_err(|e| DnessError::bad_response(&put_url, "godaddy update records", e))?;
+            .send_err("godaddy update records")
+            .await?;
 
         Ok(())
     }

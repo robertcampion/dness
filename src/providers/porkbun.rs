@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::core::Updates;
-use crate::errors::DnessError;
+use crate::errors::ClientErrorWrapper as _;
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
@@ -96,14 +96,8 @@ impl PorkbunClient<'_> {
                 apikey: self.key.clone(),
                 secretapikey: self.secret.clone(),
             })
-            .send()
-            .await
-            .map_err(|e| DnessError::send_http(&post_url, "porkbun fetch records", e))?
-            .error_for_status()
-            .map_err(|e| DnessError::bad_response(&post_url, "porkbun fetch records", e))?
-            .json::<PorkbunResponse>()
-            .await
-            .map_err(|e| DnessError::deserialize(&post_url, "porkbun fetch records", e))?
+            .send_json::<PorkbunResponse>("porkbun fetch records")
+            .await?
             .records
             .into_iter()
             .filter(|r| VALID_RECORD_TYPES.contains(&r.r#type.as_str()))
@@ -124,11 +118,8 @@ impl PorkbunClient<'_> {
                 ttl: record.ttl.clone(),
                 r#type: record.r#type.clone(),
             })
-            .send()
-            .await
-            .map_err(|e| DnessError::send_http(&post_url, "porkbun update records", e))?
-            .error_for_status()
-            .map_err(|e| DnessError::bad_response(&post_url, "porkbun update records", e))?;
+            .send_err("porkbun update records")
+            .await?;
 
         Ok(())
     }

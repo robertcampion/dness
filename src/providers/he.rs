@@ -1,5 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr};
 
+use anyhow::Result;
 use log::{info, warn};
 use serde::Deserialize;
 
@@ -28,7 +29,7 @@ pub struct HeProvider<'a> {
 
 impl HeProvider<'_> {
     /// https://dns.he.net/docs.html
-    pub async fn update_domain(&self, host: &str, wan: Ipv4Addr) -> Result<(), DnessError> {
+    pub async fn update_domain(&self, host: &str, wan: Ipv4Addr) -> Result<()> {
         let base = self.config.base_url.trim_end_matches('/').to_string();
         let url = format!("{}/nic/update", base);
         let params = [
@@ -67,7 +68,7 @@ pub async fn update_domains(
     _client: &reqwest::Client,
     config: &HeConfig,
     wan: IpAddr,
-) -> Result<Updates, DnessError> {
+) -> Result<Updates> {
     // uses the same strategy as namecheap where we get the current records
     // via dns and check if they need to be updated
     let IpAddr::V4(wan) = wan else {

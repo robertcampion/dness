@@ -1,5 +1,6 @@
 use std::net::IpAddr;
 
+use anyhow::Result;
 use hickory_resolver::config::ResolverConfig;
 use serde::Deserialize;
 
@@ -21,14 +22,14 @@ pub async fn resolve_ip(
     client: &reqwest::Client,
     config: &DnsConfig,
     ip_type: IpType,
-) -> Result<IpAddr, DnessError> {
+) -> Result<IpAddr> {
     match config.ip_resolver {
         Resolver::OpenDns => opendsn_resolve_ip(ip_type).await.map_err(|x| x.into()),
         Resolver::Ipify => ipify_resolve_ip(client, ip_type).await,
     }
 }
 
-async fn ipify_resolve_ip(client: &reqwest::Client, ip_type: IpType) -> Result<IpAddr, DnessError> {
+async fn ipify_resolve_ip(client: &reqwest::Client, ip_type: IpType) -> Result<IpAddr> {
     let ipify_url = match ip_type {
         IpType::V4 => "https://api.ipify.org/",
         IpType::V6 => "https://api6.ipify.org/",

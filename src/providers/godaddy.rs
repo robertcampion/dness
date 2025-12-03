@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap as Map, HashSet};
 use std::net::{IpAddr, Ipv4Addr};
 
+use anyhow::Result;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -56,7 +57,7 @@ impl GoClient<'_> {
         format!("sso-key {}:{}", self.key, self.secret)
     }
 
-    async fn fetch_records(&self) -> Result<Vec<GoRecord>, DnessError> {
+    async fn fetch_records(&self) -> Result<Vec<GoRecord>> {
         let get_url = format!("{}/v1/domains/{}/records/A", self.base_url, self.domain);
         let response = self
             .client
@@ -73,7 +74,7 @@ impl GoClient<'_> {
         Ok(response)
     }
 
-    async fn update_record(&self, record: &GoRecord, addr: Ipv4Addr) -> Result<(), DnessError> {
+    async fn update_record(&self, record: &GoRecord, addr: Ipv4Addr) -> Result<()> {
         let put_url = format!(
             "{}/v1/domains/{}/records/A/{}",
             self.base_url, self.domain, record.name
@@ -95,11 +96,7 @@ impl GoClient<'_> {
         Ok(())
     }
 
-    async fn ensure_current_ip(
-        &self,
-        record: &GoRecord,
-        addr: Ipv4Addr,
-    ) -> Result<Updates, DnessError> {
+    async fn ensure_current_ip(&self, record: &GoRecord, addr: Ipv4Addr) -> Result<Updates> {
         let mut current = 0;
         let mut updated = 0;
         match record.data.parse::<Ipv4Addr>() {
@@ -150,7 +147,7 @@ pub async fn update_domains(
     client: &reqwest::Client,
     config: &GoDaddyConfig,
     addr: IpAddr,
-) -> Result<Updates, DnessError> {
+) -> Result<Updates> {
     let IpAddr::V4(addr) = addr else {
         unimplemented!("IPv6 not supported for GoDaddy")
     };

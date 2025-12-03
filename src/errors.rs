@@ -1,114 +1,32 @@
 use std::{error, fmt};
 
+use anyhow::{anyhow, Error};
 use hickory_resolver::error::ResolveError;
 
 #[derive(Debug)]
-pub enum DnessErrorKind {
-    SendHttp {
-        url: String,
-        context: String,
-        source: reqwest::Error,
-    },
-    BadResponse {
-        url: String,
-        context: String,
-        source: reqwest::Error,
-    },
-    Deserialize {
-        url: String,
-        context: String,
-        source: reqwest::Error,
-    },
-    Message(String),
-    Dns {
-        source: DnsError,
-    },
-}
-
-#[derive(Debug)]
-pub struct DnessError {
-    kind: DnessErrorKind,
-}
+pub struct DnessError;
 
 impl DnessError {
-    pub fn send_http(url: &str, context: &str, source: reqwest::Error) -> DnessError {
-        DnessError {
-            kind: DnessErrorKind::SendHttp {
-                url: String::from(url),
-                context: String::from(context),
-                source,
-            },
-        }
+    pub fn send_http(url: &str, context: &str, source: reqwest::Error) -> Error {
+        anyhow!(source).context(format!(
+            "unable to send http request for {context}: url attempted: {url}",
+        ))
     }
 
-    pub fn bad_response(url: &str, context: &str, source: reqwest::Error) -> DnessError {
-        DnessError {
-            kind: DnessErrorKind::BadResponse {
-                url: String::from(url),
-                context: String::from(context),
-                source,
-            },
-        }
+    pub fn bad_response(url: &str, context: &str, source: reqwest::Error) -> Error {
+        anyhow!(source).context(format!(
+            "received bad http response for {context}: url attempted: {url}",
+        ))
     }
 
-    pub fn deserialize(url: &str, context: &str, source: reqwest::Error) -> DnessError {
-        DnessError {
-            kind: DnessErrorKind::Deserialize {
-                url: String::from(url),
-                context: String::from(context),
-                source,
-            },
-        }
+    pub fn deserialize(url: &str, context: &str, source: reqwest::Error) -> Error {
+        anyhow!(source).context(format!(
+            "unable to deserialize response for {context}: url attempted: {url}",
+        ))
     }
 
-    pub fn message(msg: String) -> DnessError {
-        DnessError {
-            kind: DnessErrorKind::Message(msg),
-        }
-    }
-}
-
-impl From<DnsError> for DnessError {
-    fn from(source: DnsError) -> Self {
-        DnessError {
-            kind: DnessErrorKind::Dns { source },
-        }
-    }
-}
-
-impl error::Error for DnessError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self.kind {
-            DnessErrorKind::SendHttp { ref source, .. } => Some(source),
-            DnessErrorKind::BadResponse { ref source, .. } => Some(source),
-            DnessErrorKind::Deserialize { ref source, .. } => Some(source),
-            DnessErrorKind::Dns { ref source, .. } => Some(source),
-            _ => None,
-        }
-    }
-}
-
-impl fmt::Display for DnessError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.kind {
-            DnessErrorKind::SendHttp { url, context, .. } => write!(
-                f,
-                "unable to send http request for {}: url attempted: {}",
-                context, url
-            ),
-            DnessErrorKind::BadResponse { url, context, .. } => write!(
-                f,
-                "received bad http response for {}: url attempted: {}",
-                context, url
-            ),
-            DnessErrorKind::Deserialize { url, context, .. } => write!(
-                f,
-                "unable to deserialize response for {}: url attempted: {}",
-                context, url
-            ),
-            DnessErrorKind::Dns { .. } => write!(f, "dns lookup"),
-            DnessErrorKind::Message(msg) => write!(f, "{}", msg),
-        }
+    pub fn message(msg: String) -> Error {
+        anyhow!(msg)
     }
 }
 

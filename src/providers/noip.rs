@@ -1,5 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr};
 
+use anyhow::Result;
 use log::{info, warn};
 use serde::Deserialize;
 
@@ -29,7 +30,7 @@ pub struct NoIpProvider<'a> {
 
 impl NoIpProvider<'_> {
     /// https://www.noip.com/integrate/request
-    pub async fn update_domain(&self, wan: Ipv4Addr) -> Result<(), DnessError> {
+    pub async fn update_domain(&self, wan: Ipv4Addr) -> Result<()> {
         let base = self.config.base_url.trim_end_matches('/').to_string();
         let get_url = format!("{}/nic/update", base);
         let response = self
@@ -64,7 +65,7 @@ pub async fn update_domains(
     client: &reqwest::Client,
     config: &NoIpConfig,
     wan: IpAddr,
-) -> Result<Updates, DnessError> {
+) -> Result<Updates> {
     let IpAddr::V4(wan) = wan else {
         unimplemented!("IPv6 not supported for NoIp")
     };

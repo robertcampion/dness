@@ -1,5 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr};
 
+use anyhow::Result;
 use log::{info, warn};
 use serde::Deserialize;
 
@@ -29,7 +30,7 @@ pub struct DynuProvider<'a> {
 }
 
 impl DynuProvider<'_> {
-    pub async fn update_domain(&self, host: &str, wan: Ipv4Addr) -> Result<(), DnessError> {
+    pub async fn update_domain(&self, host: &str, wan: Ipv4Addr) -> Result<()> {
         let base = self.config.base_url.trim_end_matches('/').to_string();
         let get_url = format!("{}/nic/update", base);
         let mut params = vec![
@@ -73,7 +74,7 @@ pub async fn update_domains(
     client: &reqwest::Client,
     config: &DynuConfig,
     wan: IpAddr,
-) -> Result<Updates, DnessError> {
+) -> Result<Updates> {
     let IpAddr::V4(wan) = wan else {
         unimplemented!("IPv6 not supported for Dynu")
     };

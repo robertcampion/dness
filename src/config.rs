@@ -9,6 +9,7 @@ use log::LevelFilter;
 use serde::Deserialize;
 
 use crate::providers::DomainConfig;
+use crate::resolvers::Resolver;
 
 #[derive(Debug)]
 pub struct ConfigError {
@@ -49,31 +50,17 @@ impl fmt::Display for ConfigError {
     }
 }
 
-#[derive(Deserialize, Clone, PartialEq, Debug)]
+#[derive(Deserialize, Clone, PartialEq, Debug, Default)]
 #[serde(deny_unknown_fields)]
 pub struct DnsConfig {
-    #[serde(default = "default_resolver")]
-    pub ip_resolver: String,
+    #[serde(default)]
+    pub ip_resolver: Resolver,
 
     #[serde(default)]
     pub log: LogConfig,
 
     #[serde(default)]
     pub domains: Vec<DomainConfig>,
-}
-
-fn default_resolver() -> String {
-    "opendns".to_owned()
-}
-
-impl Default for DnsConfig {
-    fn default() -> Self {
-        DnsConfig {
-            ip_resolver: default_resolver(),
-            log: Default::default(),
-            domains: Default::default(),
-        }
-    }
 }
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
@@ -144,7 +131,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: "opendns".to_owned(),
+                ip_resolver: Default::default(),
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
@@ -167,7 +154,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: "opendns".to_owned(),
+                ip_resolver: Default::default(),
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
@@ -190,7 +177,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: "opendns".to_owned(),
+                ip_resolver: Default::default(),
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
@@ -213,7 +200,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: "opendns".to_owned(),
+                ip_resolver: Default::default(),
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
@@ -284,7 +271,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: "opendns".to_owned(),
+                ip_resolver: Default::default(),
                 log: LogConfig {
                     level: LevelFilter::Debug,
                 },
@@ -324,7 +311,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: "ipify".to_owned(),
+                ip_resolver: Resolver::Ipify,
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },

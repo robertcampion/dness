@@ -3,7 +3,6 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
 use hickory_resolver::TokioAsyncResolver;
 
-use crate::core::IpType;
 use crate::errors::{DnsError, DnsErrorKind};
 
 #[derive(Debug)]
@@ -11,28 +10,27 @@ pub struct DnsResolver {
     resolver: TokioAsyncResolver,
 }
 
+macro_rules! lookup {
+    ($method:ident, $addr_type:ident) => {
+        pub async fn $method(&self, host: &str) -> Result<$addr_type, DnsError> {
+            let response = self.resolver.$method(host).await.map_err(|e| DnsError {
+                kind: Box::new(DnsErrorKind::DnsResolve(e)),
+            })?;
+
+            response
+                .iter()
+                .next()
+                .map(|address| address.0)
+                .ok_or_else(|| DnsError {
+                    kind: Box::new(DnsErrorKind::UnexpectedResponse(0)),
+                })
+        }
+    };
+}
+
 impl DnsResolver {
-    pub async fn create_opendns(ip_type: IpType) -> Result<Self, DnsError> {
-        let ips = // OpenDNS nameservers:
-                // https://en.wikipedia.org/wiki/OpenDNS#Name_server_IP_addresses
-                match ip_type {
-                    IpType::V4 => [
-                        IpAddr::V4(Ipv4Addr::new(208, 67, 222, 222)),
-                        IpAddr::V4(Ipv4Addr::new(208, 67, 220, 220)),
-                    ],
-                    IpType::V6 => [
-                        IpAddr::V6(Ipv6Addr::new(0x2620, 0x119, 0x35, 0, 0, 0, 0, 0x35)),
-                        IpAddr::V6(Ipv6Addr::new(0x2620, 0x119, 0x53, 0, 0, 0, 0, 0x53)),
-                    ],
-                };
-
-        let config = ResolverConfig::from_parts(
-            None,
-            vec![],
-            NameServerConfigGroup::from_ips_clear(&ips, 53, false),
-        );
-
-        Self::from_config(config).await
+    pub async fn create_opendns() -> Result<Self, DnsError> {
+        Self::from_config(config_opendns()).await
     }
 
     pub async fn create_cloudflare() -> Result<Self, DnsError> {
@@ -45,72 +43,41 @@ impl DnsResolver {
         Ok(DnsResolver { resolver })
     }
 
-    pub async fn ipv4_lookup(&self, host: &str) -> Result<Ipv4Addr, DnsError> {
-        // When we query opendns for the special domain of "myip.opendns.com" it will return to us
-        // our IP
-        let response = self
-            .resolver
-            .ipv4_lookup(host)
-            .await
-            .map_err(|e| DnsError {
-                kind: Box::new(DnsErrorKind::DnsResolve(e)),
-            })?;
-
-        response
-            .iter()
-            .next()
-            .map(|address| address.0)
-            .ok_or_else(|| DnsError {
-                kind: Box::new(DnsErrorKind::UnexpectedResponse(0)),
-            })
-    }
-
-    pub async fn ipv6_lookup(&self, host: &str) -> Result<Ipv6Addr, DnsError> {
-        // When we query opendns for the special domain of "myip.opendns.com" it will return to us
-        // our IP
-        let response = self
-            .resolver
-            .ipv6_lookup(host)
-            .await
-            .map_err(|e| DnsError {
-                kind: Box::new(DnsErrorKind::DnsResolve(e)),
-            })?;
-
-        response
-            .iter()
-            .next()
-            .map(|address| address.0)
-            .ok_or_else(|| DnsError {
-                kind: Box::new(DnsErrorKind::UnexpectedResponse(0)),
-            })
-    }
+    lookup!(ipv4_lookup, Ipv4Addr);
+    lookup!(ipv6_lookup, Ipv6Addr);
 }
 
-#[derive(Debug)]
-struct OpenDnsResolver {
-    resolver: DnsResolver,
-    ip_type: IpType,
+pub fn config_opendns() -> ResolverConfig {
+    ResolverConfig::from_parts(None, vec![], nameservers_opendns())
 }
 
-impl OpenDnsResolver {
-    async fn create(ip_type: IpType) -> Result<Self, DnsError> {
-        let resolver = DnsResolver::create_opendns(ip_type).await?;
-        Ok(OpenDnsResolver { resolver, ip_type })
-    }
+// pub fn config_opendns_tls() -> ResolverConfig {
+//     ResolverConfig::from_parts(None, vec![], nameservers_opendns_tls())
+// }
 
-    async fn wan_lookup(&self) -> Result<IpAddr, DnsError> {
-        const DOMAIN: &str = "myip.opendns.com.";
-        match self.ip_type {
-            IpType::V4 => self.resolver.ipv4_lookup(DOMAIN).await.map(Into::into),
-            IpType::V6 => self.resolver.ipv6_lookup(DOMAIN).await.map(Into::into),
-        }
-    }
+// pub fn config_opendns_https() -> ResolverConfig {
+//     ResolverConfig::from_parts(None, vec![], nameservers_opendns_https())
+// }
+
+pub fn nameservers_opendns() -> NameServerConfigGroup {
+    NameServerConfigGroup::from_ips_clear(OPENDNS_IPS, 53, true)
 }
 
-pub async fn wan_lookup_ip(ip_type: IpType) -> Result<IpAddr, DnsError> {
-    let opendns = OpenDnsResolver::create(ip_type).await?;
-    opendns.wan_lookup().await
-}
+// pub fn nameservers_opendns_tls() -> NameServerConfigGroup {
+//     NameServerConfigGroup::from_ips_tls(OPENDNS_IPS, 853, "dns.opendns.com".to_string(), true)
+// }
+
+// pub fn nameservers_opendns_https() -> NameServerConfigGroup {
+//     NameServerConfigGroup::from_ips_https(OPENDNS_IPS, 443, "doh.opendns.com".to_string(), true)
+// }
+
+/// IP address for the OpenDns DNS service
+pub const OPENDNS_IPS: &[IpAddr] = &[
+    IpAddr::V4(Ipv4Addr::new(208, 67, 222, 222)),
+    IpAddr::V4(Ipv4Addr::new(208, 67, 220, 220)),
+    IpAddr::V6(Ipv6Addr::new(0x2620, 0x119, 0x35, 0, 0, 0, 0, 0x35)),
+    IpAddr::V6(Ipv6Addr::new(0x2620, 0x119, 0x53, 0, 0, 0, 0, 0x53)),
+];
 
 #[cfg(test)]
 mod tests {
@@ -119,57 +86,17 @@ mod tests {
     #[tokio::test]
     async fn opendns_lookup_ipv4_test() {
         // Heads up: this test requires internet connectivity
-        match wan_lookup_ip(IpType::V4).await {
-            Ok(ip) => {
-                assert!(ip.is_ipv4());
-                assert!(!ip.is_loopback());
-            }
-            Err(e) => {
-                match e.kind.as_ref() {
-                    DnsErrorKind::DnsResolve(e) => {
-                        match e.kind() {
-                            hickory_resolver::error::ResolveErrorKind::NoRecordsFound {
-                                ..
-                            } => {
-                                // This is fine, just means we're behind a CGNAT
-                            }
-                            _ => panic!("unexpected error: {}", e),
-                        }
-                    }
-                    DnsErrorKind::UnexpectedResponse(_) => {
-                        panic!("unexpected response: {}", e);
-                    }
-                }
-            }
-        }
+        let resolver = DnsResolver::create_opendns().await.unwrap();
+        let ip = resolver.ipv4_lookup("example.com.").await.unwrap();
+        assert!(!ip.is_loopback());
     }
 
     #[tokio::test]
     async fn opendns_lookup_ipv6_test() {
         // Heads up: this test requires internet connectivity
-        match wan_lookup_ip(IpType::V6).await {
-            Ok(ip) => {
-                assert!(ip.is_ipv6());
-                assert!(!ip.is_loopback());
-            }
-            Err(e) => {
-                match e.kind.as_ref() {
-                    DnsErrorKind::DnsResolve(e) => {
-                        match e.kind() {
-                            hickory_resolver::error::ResolveErrorKind::NoRecordsFound {
-                                ..
-                            } => {
-                                // This is fine, just means we're behind a CGNAT
-                            }
-                            _ => panic!("unexpected error: {}", e),
-                        }
-                    }
-                    DnsErrorKind::UnexpectedResponse(_) => {
-                        panic!("unexpected response: {}", e);
-                    }
-                }
-            }
-        }
+        let resolver = DnsResolver::create_opendns().await.unwrap();
+        let ip = resolver.ipv6_lookup("example.com.").await.unwrap();
+        assert!(!ip.is_loopback());
     }
 
     #[tokio::test]

@@ -21,6 +21,7 @@ openssl = { version = '0.10', optional = true }
 handlebars = "6.1"
 clap = { version = "4.4.6", features = ["derive"] }
 futures = "0.3"
+anyhow = "1.0"
 
 [target.'cfg(target_env = "musl")'.dependencies]
 mimalloc = "0.1.43"

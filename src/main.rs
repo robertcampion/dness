@@ -10,12 +10,12 @@ mod providers;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-use std::error;
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use anyhow::{anyhow, Error};
 use chrono::Duration;
 use clap::Parser;
 use log::{error, info, LevelFilter};
@@ -31,7 +31,7 @@ struct Opt {
     config: Option<PathBuf>,
 }
 
-fn log_err(context: &str, err: Box<dyn error::Error>) {
+fn log_err(context: &str, err: Error) {
     let mut msg = String::new();
     let _ = writeln!(msg, "{} ", context);
     let _ = write!(msg, "\tcaused by: {}", err);
@@ -58,14 +58,15 @@ fn init_logging(lvl: LevelFilter) {
 fn init_configuration<T: AsRef<Path>>(file: Option<T>) -> DnsConfig {
     if let Some(config_file) = file {
         let path = config_file.as_ref();
-        match parse_config(path, &std::env::vars().collect()) {
+        let env = std::env::vars().collect();
+        match parse_config(path, &env) {
             Ok(c) => c,
             Err(e) => {
                 // If there is an error during configuration, we assume a log level of Warn so that
                 // the user will see the error printed.
                 init_logging(LevelFilter::Warn);
                 let desc = format!("could not configure application from: {}", path.display());
-                log_err(&desc, Box::new(e));
+                log_err(&desc, e);
                 std::process::exit(1)
             }
         }
@@ -115,7 +116,7 @@ async fn main() {
                     Some(addr)
                 }
                 Err(e) => {
-                    log_err("could not successfully resolve IP", Box::new(e));
+                    log_err("could not successfully resolve IP", anyhow!(e));
                     None
                 }
             }
@@ -148,7 +149,7 @@ async fn main() {
                 }
                 Err(e) => {
                     failure = true;
-                    let msg = format!("could not update {}", d.display_name(),);
+                    let msg = format!("could not update {}", d.display_name());
                     log_err(&msg, e);
                 }
             }

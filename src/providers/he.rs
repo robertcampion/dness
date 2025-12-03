@@ -1,9 +1,25 @@
-use crate::config::HeConfig;
+use std::net::{IpAddr, Ipv4Addr};
+
+use log::{info, warn};
+use serde::Deserialize;
+
 use crate::core::Updates;
 use crate::dns::DnsResolver;
 use crate::errors::DnessError;
-use log::{info, warn};
-use std::net::{IpAddr, Ipv4Addr};
+
+#[derive(Deserialize, Clone, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct HeConfig {
+    #[serde(default = "he_base_url")]
+    pub base_url: String,
+    pub hostname: String,
+    pub password: String,
+    pub records: Vec<String>,
+}
+
+fn he_base_url() -> String {
+    "https://dyn.dns.he.net".to_owned()
+}
 
 #[derive(Debug)]
 pub struct HeProvider<'a> {
@@ -105,8 +121,7 @@ mod tests {
 
     macro_rules! he_server {
         () => {{
-            use rouille::Response;
-            use rouille::Server;
+            use rouille::{Response, Server};
 
             let server = Server::new("localhost:0", |request| match request.url().as_str() {
                 "/nic/update" => Response::from_data("text/html", (b"good 2.2.2.2").to_vec()),
@@ -133,9 +148,9 @@ mod tests {
         let new_ip = IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2));
         let config = HeConfig {
             base_url: format!("http://{}", addr),
-            hostname: String::from("example.com"),
-            password: String::from("secret-1"),
-            records: vec![String::from("@")],
+            hostname: "example.com".to_owned(),
+            password: "secret-1".to_owned(),
+            records: vec!["@".to_owned()],
         };
 
         let summary = update_domains(&http_client, &config, new_ip).await.unwrap();

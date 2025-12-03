@@ -1,5 +1,5 @@
-use std::error;
-use std::fmt;
+use std::{error, fmt};
+
 use hickory_resolver::error::ResolveError;
 
 #[derive(Debug)]

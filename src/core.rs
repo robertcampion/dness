@@ -1,7 +1,27 @@
-use log::warn;
 use std::collections::HashSet;
 use std::fmt;
+use std::net::IpAddr;
 use std::ops::{Add, AddAssign};
+
+use log::warn;
+use serde::Deserialize;
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum IpType {
+    #[serde(rename = "4")]
+    V4,
+    #[serde(rename = "6")]
+    V6,
+}
+
+impl From<IpAddr> for IpType {
+    fn from(addr: IpAddr) -> IpType {
+        match addr {
+            IpAddr::V4(_) => IpType::V4,
+            IpAddr::V6(_) => IpType::V6,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Copy, Default, PartialEq, Eq)]
 pub struct Updates {

@@ -1,13 +1,27 @@
-use crate::config::PorkbunConfig;
-use crate::core::Updates;
-use crate::errors::DnessError;
+use std::collections::{BTreeMap as Map, HashSet};
+use std::net::{IpAddr, Ipv4Addr};
+
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeMap as Map;
-use std::collections::HashSet;
-use std::net::IpAddr;
-use std::net::Ipv4Addr;
+
+use crate::core::Updates;
+use crate::errors::DnessError;
+
+#[derive(Deserialize, Clone, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct PorkbunConfig {
+    #[serde(default = "porkbun_base_url")]
+    pub base_url: String,
+    pub domain: String,
+    pub key: String,
+    pub secret: String,
+    pub records: Vec<String>,
+}
+
+fn porkbun_base_url() -> String {
+    "https://api.porkbun.com/api/json/v3".to_owned()
+}
 
 const VALID_RECORD_TYPES: [&str; 1] = ["A"];
 
@@ -194,7 +208,7 @@ pub async fn update_domains(
                 // To be consistent with other dns providers we allow the user to use '@' for root
                 // domain. Porkbun uses an empty string, so we map that here.
                 if r == "@" {
-                    String::from("")
+                    "".to_owned()
                 } else {
                     r.to_string()
                 }
@@ -228,42 +242,42 @@ mod tests {
 
     #[test]
     fn deserialize_porkbun_response() {
-        let json_str = &include_str!("../assets/porkbun-get-records.json");
+        let json_str = &include_str!("../../assets/porkbun-get-records.json");
         let response: PorkbunResponse = serde_json::from_str(json_str).unwrap();
         let mut expected_1 = Map::new();
-        expected_1.insert(String::from("notes"), Value::String(String::from("")));
+        expected_1.insert("notes".to_owned(), Value::String("".to_owned()));
         let mut expected_2 = Map::new();
-        expected_2.insert(String::from("notes"), Value::Null);
+        expected_2.insert("notes".to_owned(), Value::Null);
         assert_eq!(
             response,
             PorkbunResponse {
-                status: String::from("SUCCESS"),
-                cloudflare: String::from("enabled"),
+                status: "SUCCESS".to_owned(),
+                cloudflare: "enabled".to_owned(),
                 records: vec![
                     PorkbunRecord {
-                        id: String::from("356408594"),
-                        name: String::from("sub.example.com"),
-                        r#type: String::from("A"),
-                        content: String::from("2.2.2.2"),
-                        ttl: String::from("600"),
-                        prio: Some(String::from("0")),
+                        id: "356408594".to_owned(),
+                        name: "sub.example.com".to_owned(),
+                        r#type: "A".to_owned(),
+                        content: "2.2.2.2".to_owned(),
+                        ttl: "600".to_owned(),
+                        prio: Some("0".to_owned()),
                         other: expected_1,
                     },
                     PorkbunRecord {
-                        id: String::from("354399918"),
-                        name: String::from("example.com"),
-                        r#type: String::from("A"),
-                        content: String::from("2.2.2.2"),
-                        ttl: String::from("700"),
-                        prio: Some(String::from("0")),
+                        id: "354399918".to_owned(),
+                        name: "example.com".to_owned(),
+                        r#type: "A".to_owned(),
+                        content: "2.2.2.2".to_owned(),
+                        ttl: "700".to_owned(),
+                        prio: Some("0".to_owned()),
                         other: expected_2.clone(),
                     },
                     PorkbunRecord {
-                        id: String::from("354379285"),
-                        name: String::from("example.com"),
-                        r#type: String::from("NS"),
-                        content: String::from("maceio.porkbun.com"),
-                        ttl: String::from("86400"),
+                        id: "354379285".to_owned(),
+                        name: "example.com".to_owned(),
+                        r#type: "NS".to_owned(),
+                        content: "maceio.porkbun.com".to_owned(),
+                        ttl: "86400".to_owned(),
                         prio: None,
                         other: expected_2.clone(),
                     }
@@ -274,13 +288,12 @@ mod tests {
 
     macro_rules! porkbun_rouille_server {
         () => {{
-            use rouille::Response;
-            use rouille::Server;
+            use rouille::{Response, Server};
 
             let server = Server::new("localhost:0", |request| match request.url().as_str() {
                 "/api/json/v3/dns/retrieve/example.com" => Response::from_data(
                     "application/json",
-                    include_bytes!("../assets/porkbun-get-records.json").to_vec(),
+                    include_bytes!("../../assets/porkbun-get-records.json").to_vec(),
                 ),
                 "/api/json/v3/dns/edit/example.com/356408594" => {
                     Response::from_data("application/json", r#"{"status": "SUCCESS"}"#)
@@ -311,10 +324,10 @@ mod tests {
         let new_ip = IpAddr::V4(Ipv4Addr::new(2, 2, 2, 1));
         let config = PorkbunConfig {
             base_url: format!("http://{}/api/json/v3", addr),
-            domain: String::from("example.com"),
-            key: String::from("key-1"),
-            secret: String::from("secret-1"),
-            records: vec![String::from("@"), String::from("sub")],
+            domain: "example.com".to_owned(),
+            key: "key-1".to_owned(),
+            secret: "secret-1".to_owned(),
+            records: vec!["@".to_owned(), "sub".to_owned()],
         };
 
         let summary = update_domains(&http_client, &config, new_ip).await.unwrap();
@@ -337,10 +350,10 @@ mod tests {
         let new_ip = IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2));
         let config = PorkbunConfig {
             base_url: format!("http://{}/api/json/v3", addr),
-            domain: String::from("example.com"),
-            key: String::from("key-1"),
-            secret: String::from("secret-1"),
-            records: vec![String::from("@"), String::from("sub")],
+            domain: "example.com".to_owned(),
+            key: "key-1".to_owned(),
+            secret: "secret-1".to_owned(),
+            records: vec!["@".to_owned(), "sub".to_owned()],
         };
 
         let summary = update_domains(&http_client, &config, new_ip).await.unwrap();
@@ -363,10 +376,10 @@ mod tests {
         let new_ip = IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2));
         let config = PorkbunConfig {
             base_url: format!("http://{}/api/json/v3", addr),
-            domain: String::from("example.com"),
-            key: String::from("key-1"),
-            secret: String::from("secret-1"),
-            records: vec![String::from("@"), String::from("sub"), String::from("sub2")],
+            domain: "example.com".to_owned(),
+            key: "key-1".to_owned(),
+            secret: "secret-1".to_owned(),
+            records: vec!["@".to_owned(), "sub".to_owned(), "sub2".to_owned()],
         };
 
         let summary = update_domains(&http_client, &config, new_ip).await.unwrap();

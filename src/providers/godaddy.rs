@@ -1,13 +1,27 @@
-use crate::config::GoDaddyConfig;
-use crate::core::Updates;
-use crate::errors::DnessError;
+use std::collections::{BTreeMap as Map, HashSet};
+use std::net::{IpAddr, Ipv4Addr};
+
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeMap as Map;
-use std::collections::HashSet;
-use std::net::IpAddr;
-use std::net::Ipv4Addr;
+
+use crate::core::Updates;
+use crate::errors::DnessError;
+
+#[derive(Deserialize, Clone, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct GoDaddyConfig {
+    #[serde(default = "godaddy_base_url")]
+    pub base_url: String,
+    pub key: String,
+    pub secret: String,
+    pub domain: String,
+    pub records: Vec<String>,
+}
+
+fn godaddy_base_url() -> String {
+    "https://api.godaddy.com".to_owned()
+}
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 struct GoRecord {
@@ -167,21 +181,22 @@ pub async fn update_domains(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     #[test]
     fn deserialize_go_records() {
-        let json_str = &include_str!("../assets/godaddy-get-records.json");
+        let json_str = &include_str!("../../assets/godaddy-get-records.json");
         let response: Vec<GoRecord> = serde_json::from_str(json_str).unwrap();
         let mut expected = Map::new();
-        expected.insert(String::from("ttl"), Value::Number(600.into()));
-        expected.insert(String::from("type"), Value::String(String::from("A")));
+        expected.insert("ttl".to_owned(), Value::Number(600.into()));
+        expected.insert("type".to_owned(), Value::String("A".to_owned()));
         assert_eq!(
             response,
             vec![GoRecord {
-                name: String::from("@"),
-                data: String::from("256.256.256.256"),
+                name: "@".to_owned(),
+                data: "256.256.256.256".to_owned(),
                 other: expected,
             }]
         );
@@ -190,10 +205,10 @@ mod tests {
     #[test]
     fn serialize_go_records() {
         let mut other = Map::new();
-        other.insert(String::from("ttl"), Value::Number(600.into()));
+        other.insert("ttl".to_owned(), Value::Number(600.into()));
         let rec = GoRecord {
-            data: String::from("256.256.256.256"),
-            name: String::from("@"),
+            data: "256.256.256.256".to_owned(),
+            name: "@".to_owned(),
             other,
         };
 
@@ -209,13 +224,12 @@ mod tests {
 
     macro_rules! godaddy_rouille_server {
         () => {{
-            use rouille::Response;
-            use rouille::Server;
+            use rouille::{Response, Server};
 
             let server = Server::new("localhost:0", |request| match request.url().as_str() {
                 "/v1/domains/domain-1.com/records/A" => Response::from_data(
                     "application/json",
-                    include_bytes!("../assets/godaddy-get-records.json").to_vec(),
+                    include_bytes!("../../assets/godaddy-get-records.json").to_vec(),
                 ),
                 "/v1/domains/domain-1.com/records/A/@" => Response::text("Nice job!"),
                 "/v1/domains/domain-2.com/records/A" => Response::from_data(
@@ -247,10 +261,10 @@ mod tests {
         let new_ip = IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2));
         let config = GoDaddyConfig {
             base_url: format!("http://{}", addr),
-            domain: String::from("domain-1.com"),
-            key: String::from("key-1"),
-            secret: String::from("secret-1"),
-            records: vec![String::from("@")],
+            domain: "domain-1.com".to_owned(),
+            key: "key-1".to_owned(),
+            secret: "secret-1".to_owned(),
+            records: vec!["@".to_owned()],
         };
 
         let summary = update_domains(&http_client, &config, new_ip).await.unwrap();
@@ -273,10 +287,10 @@ mod tests {
         let new_ip = IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2));
         let config = GoDaddyConfig {
             base_url: format!("http://{}", addr),
-            domain: String::from("domain-2.com"),
-            key: String::from("key-1"),
-            secret: String::from("secret-1"),
-            records: vec![String::from("@"), String::from("a"), String::from("b")],
+            domain: "domain-2.com".to_owned(),
+            key: "key-1".to_owned(),
+            secret: "secret-1".to_owned(),
+            records: vec!["@".to_owned(), "a".to_owned(), "b".to_owned()],
         };
 
         let summary = update_domains(&http_client, &config, new_ip).await.unwrap();

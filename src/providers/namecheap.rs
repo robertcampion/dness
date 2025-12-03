@@ -1,9 +1,25 @@
-use crate::config::NamecheapConfig;
+use std::net::{IpAddr, Ipv4Addr};
+
+use log::{info, warn};
+use serde::Deserialize;
+
 use crate::core::Updates;
 use crate::dns::DnsResolver;
 use crate::errors::DnessError;
-use log::{info, warn};
-use std::net::{IpAddr, Ipv4Addr};
+
+#[derive(Deserialize, Clone, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct NamecheapConfig {
+    #[serde(default = "namecheap_base_url")]
+    pub base_url: String,
+    pub domain: String,
+    pub ddns_password: String,
+    pub records: Vec<String>,
+}
+
+fn namecheap_base_url() -> String {
+    "https://dynamicdns.park-your-domain.com".to_owned()
+}
 
 #[derive(Debug)]
 pub struct NamecheapProvider<'a> {
@@ -109,13 +125,12 @@ mod tests {
 
     macro_rules! namecheap_server {
         () => {{
-            use rouille::Response;
-            use rouille::Server;
+            use rouille::{Response, Server};
 
             let server = Server::new("localhost:0", |request| match request.url().as_str() {
                 "/update" => Response::from_data(
                     "text/html",
-                    include_bytes!("../assets/namecheap-update.xml").to_vec(),
+                    include_bytes!("../../assets/namecheap-update.xml").to_vec(),
                 ),
                 _ => Response::empty_404(),
             })
@@ -140,9 +155,9 @@ mod tests {
         let new_ip = IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2));
         let config = NamecheapConfig {
             base_url: format!("http://{}", addr),
-            domain: String::from("example.com"),
-            ddns_password: String::from("secret-1"),
-            records: vec![String::from("@")],
+            domain: "example.com".to_owned(),
+            ddns_password: "secret-1".to_owned(),
+            records: vec!["@".to_owned()],
         };
 
         let summary = update_domains(&http_client, &config, new_ip).await.unwrap();

@@ -1,11 +1,27 @@
-use crate::config::{CloudflareConfig, IpType};
-use crate::core::Updates;
+use std::collections::HashSet;
+use std::net::IpAddr;
+use std::{error, fmt};
+
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::error;
-use std::fmt;
-use std::net::IpAddr;
+
+use crate::core::{IpType, Updates};
+
+fn ipv4_only() -> Vec<IpType> {
+    vec![IpType::V4]
+}
+
+#[derive(Deserialize, Clone, PartialEq, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct CloudflareConfig {
+    pub email: Option<String>,
+    pub key: Option<String>,
+    pub token: Option<String>,
+    pub zone: String,
+    pub records: Vec<String>,
+    #[serde(default = "ipv4_only")]
+    pub ip_types: Vec<IpType>,
+}
 
 trait CloudflareAuthorizer: fmt::Debug {
     fn with_auth(&self, request_builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder;
@@ -428,7 +444,7 @@ mod tests {
 
     #[test]
     fn deserialize_cloudflare_error() {
-        let json_str = &include_str!("../assets/cloudflare-error.json");
+        let json_str = &include_str!("../../assets/cloudflare-error.json");
         let response: CloudflareResponse<String> = serde_json::from_str(json_str).unwrap();
         assert_eq!(
             response,
@@ -438,7 +454,7 @@ mod tests {
                 success: false,
                 errors: vec![CloudflareError {
                     code: 1003,
-                    message: String::from("Invalid or missing zone id."),
+                    message: "Invalid or missing zone id.".to_owned(),
                 }]
             }
         );
@@ -446,7 +462,7 @@ mod tests {
 
     #[test]
     fn deserialize_cloudflare_zone() {
-        let json_str = &include_str!("../assets/cloudflare-zone-response.json");
+        let json_str = &include_str!("../../assets/cloudflare-zone-response.json");
         let response: CloudflareResponse<Vec<CloudflareZone>> =
             serde_json::from_str(json_str).unwrap();
 
@@ -454,8 +470,8 @@ mod tests {
             response,
             CloudflareResponse {
                 result: Some(vec![CloudflareZone {
-                    id: String::from("aaaabbbb"),
-                    name: String::from("example.com"),
+                    id: "aaaabbbb".to_owned(),
+                    name: "example.com".to_owned(),
                 }]),
                 result_info: Some(CloudflareResultInfo {
                     page: 1,
@@ -472,7 +488,7 @@ mod tests {
 
     #[test]
     fn deserialize_cloudflare_update_a_response() {
-        let json_str = &include_str!("../assets/cloudflare-update-a-response.json");
+        let json_str = &include_str!("../../assets/cloudflare-update-a-response.json");
         let response: CloudflareResponse<CloudflareDnsRecord> =
             serde_json::from_str(json_str).unwrap();
 
@@ -480,9 +496,9 @@ mod tests {
             response,
             CloudflareResponse {
                 result: Some(CloudflareDnsRecord {
-                    id: String::from("372e67954025e0ba6aaa6d586b9e0b59"),
-                    name: String::from("example.com"),
-                    content: String::from("198.51.100.4"),
+                    id: "372e67954025e0ba6aaa6d586b9e0b59".to_owned(),
+                    name: "example.com".to_owned(),
+                    content: "198.51.100.4".to_owned(),
                 }),
                 result_info: None,
                 success: true,
@@ -493,7 +509,7 @@ mod tests {
 
     #[test]
     fn deserialize_cloudflare_update_aaaa_response() {
-        let json_str = &include_str!("../assets/cloudflare-update-aaaa-response.json");
+        let json_str = &include_str!("../../assets/cloudflare-update-aaaa-response.json");
         let response: CloudflareResponse<CloudflareDnsRecord> =
             serde_json::from_str(json_str).unwrap();
 
@@ -501,9 +517,9 @@ mod tests {
             response,
             CloudflareResponse {
                 result: Some(CloudflareDnsRecord {
-                    id: String::from("372e67954025e0ba6aaa6d586b9e0b59"),
-                    name: String::from("example.com"),
-                    content: String::from("2600:1406:bc00:53::b81e:94ce"),
+                    id: "372e67954025e0ba6aaa6d586b9e0b59".to_owned(),
+                    name: "example.com".to_owned(),
+                    content: "2600:1406:bc00:53::b81e:94ce".to_owned(),
                 }),
                 result_info: None,
                 success: true,

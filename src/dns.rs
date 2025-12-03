@@ -1,8 +1,10 @@
-use crate::config::IpType;
-use crate::errors::{DnsError, DnsErrorKind};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
 use hickory_resolver::TokioAsyncResolver;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+use crate::core::IpType;
+use crate::errors::{DnsError, DnsErrorKind};
 
 #[derive(Debug)]
 pub struct DnsResolver {

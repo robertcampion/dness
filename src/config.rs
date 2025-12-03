@@ -1,13 +1,14 @@
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::{Error as IoError, Read};
+use std::path::Path;
+use std::{error, fmt};
+
 use handlebars::{Handlebars, RenderError, TemplateError};
 use log::LevelFilter;
 use serde::Deserialize;
-use std::fmt;
-use std::fs::File;
-use std::io::Error as IoError;
-use std::io::Read;
-use std::net::IpAddr;
-use std::path::Path;
-use std::{collections::HashMap, error};
+
+use crate::providers::DomainConfig;
 
 #[derive(Debug)]
 pub struct ConfigError {
@@ -62,7 +63,7 @@ pub struct DnsConfig {
 }
 
 fn default_resolver() -> String {
-    String::from("opendns")
+    "opendns".to_owned()
 }
 
 impl Default for DnsConfig {
@@ -92,160 +93,6 @@ impl Default for LogConfig {
             level: default_log_level(),
         }
     }
-}
-
-#[derive(Deserialize, Clone, PartialEq, Debug)]
-#[serde(tag = "type")]
-#[serde(rename_all = "lowercase")]
-pub enum DomainConfig {
-    Cloudflare(CloudflareConfig),
-    GoDaddy(GoDaddyConfig),
-    Namecheap(NamecheapConfig),
-    He(HeConfig),
-    NoIp(NoIpConfig),
-    Dynu(DynuConfig),
-    Porkbun(PorkbunConfig),
-}
-
-impl DomainConfig {
-    pub fn display_name(&self) -> String {
-        match self {
-            DomainConfig::Cloudflare(c) => format!("{} ({})", c.zone, "cloudflare"),
-            DomainConfig::GoDaddy(c) => format!("{} ({})", c.domain, "godaddy"),
-            DomainConfig::Namecheap(c) => format!("{} ({})", c.domain, "namecheap"),
-            DomainConfig::He(c) => format!("{} ({})", c.hostname, "he"),
-            DomainConfig::NoIp(c) => format!("{} ({})", c.hostname, "noip"),
-            DomainConfig::Dynu(c) => format!("{} ({})", c.hostname, "dynu"),
-            DomainConfig::Porkbun(c) => format!("{} ({})", c.domain, "porkbun"),
-        }
-    }
-
-    pub fn get_ip_types(&self) -> Vec<IpType> {
-        match self {
-            DomainConfig::Cloudflare(cloudflare_config) => cloudflare_config.ip_types.clone(),
-            _ => vec![IpType::V4],
-        }
-    }
-}
-
-#[derive(Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub enum IpType {
-    #[serde(rename = "4")]
-    V4,
-    #[serde(rename = "6")]
-    V6,
-}
-
-impl From<IpAddr> for IpType {
-    fn from(addr: IpAddr) -> IpType {
-        match addr {
-            IpAddr::V4(_) => IpType::V4,
-            IpAddr::V6(_) => IpType::V6,
-        }
-    }
-}
-
-fn ipv4_only() -> Vec<IpType> {
-    vec![IpType::V4]
-}
-
-#[derive(Deserialize, Clone, PartialEq, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct CloudflareConfig {
-    pub email: Option<String>,
-    pub key: Option<String>,
-    pub token: Option<String>,
-    pub zone: String,
-    pub records: Vec<String>,
-    #[serde(default = "ipv4_only")]
-    pub ip_types: Vec<IpType>,
-}
-
-#[derive(Deserialize, Clone, PartialEq, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct GoDaddyConfig {
-    #[serde(default = "godaddy_base_url")]
-    pub base_url: String,
-    pub key: String,
-    pub secret: String,
-    pub domain: String,
-    pub records: Vec<String>,
-}
-
-#[derive(Deserialize, Clone, PartialEq, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct NamecheapConfig {
-    #[serde(default = "namecheap_base_url")]
-    pub base_url: String,
-    pub domain: String,
-    pub ddns_password: String,
-    pub records: Vec<String>,
-}
-
-#[derive(Deserialize, Clone, PartialEq, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct HeConfig {
-    #[serde(default = "he_base_url")]
-    pub base_url: String,
-    pub hostname: String,
-    pub password: String,
-    pub records: Vec<String>,
-}
-
-#[derive(Deserialize, Clone, PartialEq, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct NoIpConfig {
-    #[serde(default = "noip_base_url")]
-    pub base_url: String,
-    pub username: String,
-    pub password: String,
-    pub hostname: String,
-}
-
-#[derive(Deserialize, Clone, PartialEq, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct DynuConfig {
-    #[serde(default = "dynu_base_url")]
-    pub base_url: String,
-    pub hostname: String,
-    pub username: String,
-    pub password: String,
-    pub records: Vec<String>,
-}
-
-#[derive(Deserialize, Clone, PartialEq, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct PorkbunConfig {
-    #[serde(default = "porkbun_base_url")]
-    pub base_url: String,
-    pub domain: String,
-    pub key: String,
-    pub secret: String,
-    pub records: Vec<String>,
-}
-
-fn godaddy_base_url() -> String {
-    String::from("https://api.godaddy.com")
-}
-
-fn namecheap_base_url() -> String {
-    String::from("https://dynamicdns.park-your-domain.com")
-}
-
-fn he_base_url() -> String {
-    String::from("https://dyn.dns.he.net")
-}
-
-fn noip_base_url() -> String {
-    String::from("https://dynupdate.no-ip.com")
-}
-
-fn dynu_base_url() -> String {
-    String::from("https://api.dynu.com")
-}
-
-fn porkbun_base_url() -> String {
-    String::from("https://api.porkbun.com/api/json/v3")
 }
 
 pub fn parse_config<P: AsRef<Path>>(
@@ -285,6 +132,11 @@ pub fn parse_config<P: AsRef<Path>>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::IpType;
+    use crate::providers::{
+        CloudflareConfig, DomainConfig, DynuConfig, GoDaddyConfig, HeConfig, NamecheapConfig,
+        NoIpConfig,
+    };
 
     #[test]
     fn deserialize_config_empty() {
@@ -292,7 +144,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: String::from("opendns"),
+                ip_resolver: "opendns".to_owned(),
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
@@ -315,16 +167,16 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: String::from("opendns"),
+                ip_resolver: "opendns".to_owned(),
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
                 domains: vec![DomainConfig::Cloudflare(CloudflareConfig {
                     email: None,
                     key: None,
-                    token: Some(String::from("dec0de")),
-                    zone: String::from("example.com"),
-                    records: vec![String::from("n.example.com")],
+                    token: Some("dec0de".to_owned()),
+                    zone: "example.com".to_owned(),
+                    records: vec!["n.example.com".to_owned()],
                     ip_types: vec![IpType::V4],
                 })]
             }
@@ -338,16 +190,16 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: String::from("opendns"),
+                ip_resolver: "opendns".to_owned(),
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
                 domains: vec![DomainConfig::Cloudflare(CloudflareConfig {
                     email: None,
                     key: None,
-                    token: Some(String::from("dec0de")),
-                    zone: String::from("example.com"),
-                    records: vec![String::from("n.example.com")],
+                    token: Some("dec0de".to_owned()),
+                    zone: "example.com".to_owned(),
+                    records: vec!["n.example.com".to_owned()],
                     ip_types: vec![IpType::V6],
                 })]
             }
@@ -361,16 +213,16 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: String::from("opendns"),
+                ip_resolver: "opendns".to_owned(),
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
                 domains: vec![DomainConfig::Cloudflare(CloudflareConfig {
                     email: None,
                     key: None,
-                    token: Some(String::from("dec0de")),
-                    zone: String::from("example.com"),
-                    records: vec![String::from("n.example.com")],
+                    token: Some("dec0de".to_owned()),
+                    zone: "example.com".to_owned(),
+                    records: vec!["n.example.com".to_owned()],
                     ip_types: vec![IpType::V4, IpType::V6],
                 })]
             }
@@ -384,11 +236,11 @@ mod tests {
         assert_eq!(
             config,
             DomainConfig::GoDaddy(GoDaddyConfig {
-                base_url: String::from("https://api.godaddy.com"),
-                domain: String::from("example.com"),
-                key: String::from("abc123"),
-                secret: String::from("ef"),
-                records: vec![String::from("@")]
+                base_url: "https://api.godaddy.com".to_owned(),
+                domain: "example.com".to_owned(),
+                key: "abc123".to_owned(),
+                secret: "ef".to_owned(),
+                records: vec!["@".to_owned()]
             })
         );
     }
@@ -400,10 +252,10 @@ mod tests {
         assert_eq!(
             config,
             DomainConfig::Namecheap(NamecheapConfig {
-                base_url: String::from("https://dynamicdns.park-your-domain.com"),
-                domain: String::from("test-dness-1.xyz"),
-                ddns_password: String::from("super_secret_password"),
-                records: vec![String::from("@"), String::from("*"), String::from("sub")]
+                base_url: "https://dynamicdns.park-your-domain.com".to_owned(),
+                domain: "test-dness-1.xyz".to_owned(),
+                ddns_password: "super_secret_password".to_owned(),
+                records: vec!["@".to_owned(), "*".to_owned(), "sub".to_owned()]
             })
         );
     }
@@ -415,10 +267,10 @@ mod tests {
         assert_eq!(
             config,
             DomainConfig::He(HeConfig {
-                base_url: String::from("https://dyn.dns.he.net"),
-                hostname: String::from("test-dness-1.xyz"),
-                password: String::from("super_secret_password"),
-                records: vec![String::from("@"), String::from("sub")]
+                base_url: "https://dyn.dns.he.net".to_owned(),
+                hostname: "test-dness-1.xyz".to_owned(),
+                password: "super_secret_password".to_owned(),
+                records: vec!["@".to_owned(), "sub".to_owned()]
             })
         );
     }
@@ -432,7 +284,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: String::from("opendns"),
+                ip_resolver: "opendns".to_owned(),
                 log: LogConfig {
                     level: LevelFilter::Debug,
                 },
@@ -440,20 +292,17 @@ mod tests {
                     DomainConfig::Cloudflare(CloudflareConfig {
                         email: None,
                         key: None,
-                        token: Some(String::from("dec0de")),
-                        zone: String::from("example.com"),
-                        records: vec![String::from("n.example.com")],
+                        token: Some("dec0de".to_owned()),
+                        zone: "example.com".to_owned(),
+                        records: vec!["n.example.com".to_owned()],
                         ip_types: vec![IpType::V4],
                     }),
                     DomainConfig::Cloudflare(CloudflareConfig {
-                        email: Some(String::from("admin@example.com")),
-                        key: Some(String::from("deadbeef")),
+                        email: Some("admin@example.com".to_owned()),
+                        key: Some("deadbeef".to_owned()),
                         token: None,
-                        zone: String::from("example2.com"),
-                        records: vec![
-                            String::from("n.example2.com"),
-                            String::from("n2.example2.com")
-                        ],
+                        zone: "example2.com".to_owned(),
+                        records: vec!["n.example2.com".to_owned(), "n2.example2.com".to_owned()],
                         ip_types: vec![IpType::V4],
                     })
                 ]
@@ -475,7 +324,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: String::from("ipify"),
+                ip_resolver: "ipify".to_owned(),
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
@@ -491,10 +340,10 @@ mod tests {
         assert_eq!(
             config,
             DomainConfig::NoIp(NoIpConfig {
-                base_url: noip_base_url(),
-                username: String::from("myemail@example.org"),
-                hostname: String::from("dnesstest.hopto.org"),
-                password: String::from("super_secret_password"),
+                base_url: "https://dynupdate.no-ip.com".to_owned(),
+                username: "myemail@example.org".to_owned(),
+                hostname: "dnesstest.hopto.org".to_owned(),
+                password: "super_secret_password".to_owned(),
             })
         );
     }
@@ -506,11 +355,11 @@ mod tests {
         assert_eq!(
             config,
             DomainConfig::Dynu(DynuConfig {
-                base_url: String::from("https://api.dynu.com"),
-                hostname: String::from("test-dness-1.xyz"),
-                username: String::from("MyUserName"),
-                password: String::from("IpUpdatePassword"),
-                records: vec![String::from("@"), String::from("sub")]
+                base_url: "https://api.dynu.com".to_owned(),
+                hostname: "test-dness-1.xyz".to_owned(),
+                username: "MyUserName".to_owned(),
+                password: "IpUpdatePassword".to_owned(),
+                records: vec!["@".to_owned(), "sub".to_owned()]
             })
         );
     }

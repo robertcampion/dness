@@ -5,7 +5,6 @@ use serde::Deserialize;
 
 use crate::config::DnsConfig;
 use crate::core::IpType;
-
 use crate::dns::{config_opendns, DnsResolver};
 use crate::errors::{DnessError, DnsError};
 
@@ -52,42 +51,25 @@ async fn ipify_resolve_ip(client: &reqwest::Client, ip_type: IpType) -> Result<I
 }
 
 async fn opendsn_resolve_ip(ip_type: IpType) -> Result<IpAddr, DnsError> {
-    let opendns = OpenDnsResolver::create(ip_type).await?;
-    opendns.wan_lookup().await
-}
-
-#[derive(Debug)]
-struct OpenDnsResolver {
-    resolver: DnsResolver,
-    ip_type: IpType,
-}
-
-impl OpenDnsResolver {
-    async fn create(ip_type: IpType) -> Result<Self, DnsError> {
-        let base_config = config_opendns();
-        let name_servers: Vec<_> = base_config
-            .name_servers()
-            .iter()
-            .filter(|name_server| IpType::from(name_server.socket_addr.ip()) == ip_type)
-            .cloned()
-            .collect();
-        let config = ResolverConfig::from_parts(
-            base_config.domain().cloned(),
-            base_config.search().to_vec(),
-            name_servers,
-        );
-        let resolver = DnsResolver::from_config(config).await?;
-        Ok(OpenDnsResolver { resolver, ip_type })
-    }
-
-    async fn wan_lookup(&self) -> Result<IpAddr, DnsError> {
-        // When we query opendns for the special domain of "myip.opendns.com" it will return to us
-        // our IP
-        const DOMAIN: &str = "myip.opendns.com.";
-        match self.ip_type {
-            IpType::V4 => self.resolver.ipv4_lookup(DOMAIN).await.map(Into::into),
-            IpType::V6 => self.resolver.ipv6_lookup(DOMAIN).await.map(Into::into),
-        }
+    let base_config = config_opendns();
+    let name_servers: Vec<_> = base_config
+        .name_servers()
+        .iter()
+        .filter(|name_server| IpType::from(name_server.socket_addr.ip()) == ip_type)
+        .cloned()
+        .collect();
+    let config = ResolverConfig::from_parts(
+        base_config.domain().cloned(),
+        base_config.search().to_vec(),
+        name_servers,
+    );
+    let resolver = DnsResolver::from_config(config).await?;
+    // When we query opendns for the special domain of "myip.opendns.com" it will return to us
+    // our IP
+    const DOMAIN: &str = "myip.opendns.com.";
+    match ip_type {
+        IpType::V4 => resolver.ipv4_lookup(DOMAIN).await.map(Into::into),
+        IpType::V6 => resolver.ipv6_lookup(DOMAIN).await.map(Into::into),
     }
 }
 

@@ -10,6 +10,24 @@ pub struct DnsResolver {
     resolver: TokioAsyncResolver,
 }
 
+#[cfg_attr(test, faux::methods)]
+impl DnsResolver {
+    #[allow(dead_code)]
+    pub async fn create_opendns() -> Result<Self> {
+        Self::from_config(config_opendns()).await
+    }
+
+    pub async fn create_cloudflare() -> Result<Self> {
+        Self::from_config(ResolverConfig::cloudflare()).await
+    }
+
+    pub async fn from_config(config: ResolverConfig) -> Result<Self> {
+        let resolver = TokioAsyncResolver::tokio(config, ResolverOpts::default());
+
+        Ok(DnsResolver { resolver })
+    }
+}
+
 macro_rules! lookup {
     ($method:ident, $method_all:ident, $addr_type:path) => {
         #[cfg_attr(test, faux::methods)]
@@ -33,24 +51,6 @@ macro_rules! lookup {
             }
         }
     };
-}
-
-#[cfg_attr(test, faux::methods)]
-impl DnsResolver {
-    #[allow(dead_code)]
-    pub async fn create_opendns() -> Result<Self> {
-        Self::from_config(config_opendns()).await
-    }
-
-    pub async fn create_cloudflare() -> Result<Self> {
-        Self::from_config(ResolverConfig::cloudflare()).await
-    }
-
-    pub async fn from_config(config: ResolverConfig) -> Result<Self> {
-        let resolver = TokioAsyncResolver::tokio(config, ResolverOpts::default());
-
-        Ok(DnsResolver { resolver })
-    }
 }
 
 lookup!(ipv4_lookup, ipv4_lookup_all, Ipv4Addr);

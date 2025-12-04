@@ -103,6 +103,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn opendns_lookup_ipv4_test() {
         // Heads up: this test requires internet connectivity
         let resolver = DnsResolver::create_opendns().await.unwrap();
@@ -118,6 +119,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn opendns_lookup_ipv6_test() {
         // Heads up: this test requires internet connectivity
         let resolver = DnsResolver::create_opendns().await.unwrap();
@@ -133,6 +135,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn cloudflare_lookup_ipv4_test() {
         // Heads up: this test requires internet connectivity
         let resolver = DnsResolver::create_cloudflare().await.unwrap();
@@ -148,6 +151,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn cloudflare_lookup_ipv6_test() {
         // Heads up: this test requires internet connectivity
         let resolver = DnsResolver::create_cloudflare().await.unwrap();

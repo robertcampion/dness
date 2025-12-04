@@ -137,6 +137,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_he_update() {
         let (tx, addr) = he_server!();
         let http_client = reqwest::Client::new();

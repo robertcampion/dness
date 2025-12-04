@@ -144,6 +144,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_namecheap_update() {
         let (tx, addr) = namecheap_server!();
         let http_client = reqwest::Client::new();

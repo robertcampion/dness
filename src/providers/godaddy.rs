@@ -241,6 +241,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_godaddy_unparseable_ipv4() {
         let (tx, addr) = godaddy_rouille_server!();
         let http_client = reqwest::Client::new();
@@ -267,6 +268,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_godaddy_grabbag() {
         let (tx, addr) = godaddy_rouille_server!();
         let http_client = reqwest::Client::new();

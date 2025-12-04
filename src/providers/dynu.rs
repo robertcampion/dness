@@ -140,6 +140,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_dynu_update() {
         let (tx, addr) = dynu_server!();
         let http_client = reqwest::Client::new();

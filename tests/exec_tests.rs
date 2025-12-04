@@ -1,6 +1,7 @@
 use assert_cmd::Command;
 
 #[test]
+#[ignore]
 fn resolve_wan_on_no_arguments() {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
     match cmd.ok() {

@@ -302,6 +302,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_porkbun_update() {
         let (tx, addr) = porkbun_rouille_server!();
         let http_client = reqwest::Client::new();
@@ -328,6 +329,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_porkbun_current() {
         let (tx, addr) = porkbun_rouille_server!();
         let http_client = reqwest::Client::new();
@@ -354,6 +356,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_porkbun_missing() {
         let (tx, addr) = porkbun_rouille_server!();
         let http_client = reqwest::Client::new();

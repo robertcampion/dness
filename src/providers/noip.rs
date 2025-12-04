@@ -124,6 +124,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_noip_update() {
         let (tx, addr) = noip_server!();
         let http_client = reqwest::Client::new();

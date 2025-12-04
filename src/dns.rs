@@ -4,6 +4,7 @@ use anyhow::{anyhow, Context as _, Result};
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
 use hickory_resolver::TokioAsyncResolver;
 
+#[cfg_attr(test, faux::create)]
 #[derive(Debug)]
 pub struct DnsResolver {
     resolver: TokioAsyncResolver,
@@ -11,27 +12,32 @@ pub struct DnsResolver {
 
 macro_rules! lookup {
     ($method:ident, $method_all:ident, $addr_type:path) => {
-        pub async fn $method_all(&self, host: &str) -> Result<Vec<$addr_type>> {
-            let response = self
-                .resolver
-                .$method(host)
-                .await
-                .context("could not resolve via dns")?;
-            Ok(response.iter().map(|record| record.0).collect())
-        }
+        #[cfg_attr(test, faux::methods)]
+        impl DnsResolver {
+            pub async fn $method_all(&self, host: &str) -> Result<Vec<$addr_type>> {
+                let response = self
+                    .resolver
+                    .$method(host)
+                    .await
+                    .context("could not resolve via dns")?;
+                Ok(response.iter().map(|record| record.0).collect())
+            }
 
-        pub async fn $method(&self, host: &str) -> Result<$addr_type> {
-            let addrs = self.$method_all(host).await?;
-            if addrs.len() == 1 {
-                Ok(addrs[0])
-            } else {
-                Err(anyhow!("unexpected number of results: {}", addrs.len()))
+            pub async fn $method(&self, host: &str) -> Result<$addr_type> {
+                let addrs = self.$method_all(host).await?;
+                if addrs.len() == 1 {
+                    Ok(addrs[0])
+                } else {
+                    Err(anyhow!("unexpected number of results: {}", addrs.len()))
+                }
             }
         }
     };
 }
 
+#[cfg_attr(test, faux::methods)]
 impl DnsResolver {
+    #[allow(dead_code)]
     pub async fn create_opendns() -> Result<Self> {
         Self::from_config(config_opendns()).await
     }
@@ -45,10 +51,10 @@ impl DnsResolver {
 
         Ok(DnsResolver { resolver })
     }
-
-    lookup!(ipv4_lookup, ipv4_lookup_all, Ipv4Addr);
-    lookup!(ipv6_lookup, ipv6_lookup_all, Ipv6Addr);
 }
+
+lookup!(ipv4_lookup, ipv4_lookup_all, Ipv4Addr);
+lookup!(ipv6_lookup, ipv6_lookup_all, Ipv6Addr);
 
 pub fn config_opendns() -> ResolverConfig {
     ResolverConfig::from_parts(None, vec![], nameservers_opendns())

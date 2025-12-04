@@ -3,7 +3,7 @@
 //! address to be part of a CGNAT, in which case it will return an empty
 //! response with NOERROR.
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 
 use anyhow::Result;
 use hickory_resolver::config::ResolverConfig;
@@ -13,14 +13,14 @@ use crate::dns::{config_opendns, DnsResolver};
 
 /// Get current WAN IP of specified type (IPv4 or IPv6) using OpenDNS resolver
 pub async fn opendns_resolve_ip(ip_type: IpType) -> Result<IpAddr> {
-    // get_config and resolve_ip are separated out for unit testing
+    // resolve_ip is separated out for unit testing
     let config = opendns_config(ip_type);
     let resolver = DnsResolver::from_config(config).await?;
     resolve_ip(ip_type, resolver).await
 }
 
 /// Get current WAN IP of specified type (IPv4 or IPv6) using provided resolver
-async fn resolve_ip<T: DnsResolverTrait>(ip_type: IpType, resolver: T) -> Result<IpAddr> {
+async fn resolve_ip(ip_type: IpType, resolver: DnsResolver) -> Result<IpAddr> {
     const DOMAIN: &str = "myip.opendns.com.";
     match ip_type {
         IpType::V4 => resolver.ipv4_lookup(DOMAIN).await.map(Into::into),
@@ -45,26 +45,12 @@ fn opendns_config(ip_type: IpType) -> ResolverConfig {
     config
 }
 
-/// Trait to mock DnsResolver for testing
-#[cfg_attr(test, mockall::automock)]
-trait DnsResolverTrait {
-    async fn ipv4_lookup(&self, host: &str) -> Result<Ipv4Addr>;
-    async fn ipv6_lookup(&self, host: &str) -> Result<Ipv6Addr>;
-}
-
-impl DnsResolverTrait for DnsResolver {
-    async fn ipv4_lookup(&self, host: &str) -> Result<Ipv4Addr> {
-        self.ipv4_lookup(host).await
-    }
-    async fn ipv6_lookup(&self, host: &str) -> Result<Ipv6Addr> {
-        self.ipv6_lookup(host).await
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
     use anyhow::anyhow;
-    use mockall::predicate;
+    use faux::when;
 
     use super::*;
 
@@ -102,58 +88,40 @@ mod tests {
     #[tokio::test]
     async fn ipv4_lookup() {
         // test that resolve_ip queries the correct hostname
-        let mut mock_resolver = MockDnsResolverTrait::new();
-        mock_resolver
-            .expect_ipv4_lookup()
-            .with(predicate::eq("myip.opendns.com."))
-            .returning(|_| Ok(TEST_ADDR_V4))
-            .times(1);
-        mock_resolver.expect_ipv6_lookup().never();
+        let mut resolver = DnsResolver::faux();
+        when!(resolver.ipv4_lookup("myip.opendns.com.")).then(|_| Ok(TEST_ADDR_V4));
 
         assert_eq!(
-            resolve_ip(IpType::V4, mock_resolver).await.unwrap(),
+            resolve_ip(IpType::V4, resolver).await.unwrap(),
             TEST_ADDR_V4
         );
 
         // test that resolve_ip fails if resolution fails, including due to an
         // empty response
-        let mut mock_resolver = MockDnsResolverTrait::new();
-        mock_resolver
-            .expect_ipv4_lookup()
-            .with(predicate::eq("myip.opendns.com."))
-            .returning(|_| Err(anyhow!("DNS resolution failure")))
-            .times(1);
-        mock_resolver.expect_ipv6_lookup().never();
+        let mut resolver = DnsResolver::faux();
+        when!(resolver.ipv4_lookup("myip.opendns.com."))
+            .then(|_| Err(anyhow!("DNS resolution failure")));
 
-        assert!(resolve_ip(IpType::V4, mock_resolver).await.is_err());
+        assert!(resolve_ip(IpType::V4, resolver).await.is_err());
     }
 
     #[tokio::test]
     async fn ipv6_lookup() {
         // test that resolve_ip queries the correct hostname
-        let mut mock_resolver = MockDnsResolverTrait::new();
-        mock_resolver
-            .expect_ipv6_lookup()
-            .with(predicate::eq("myip.opendns.com."))
-            .returning(|_| Ok(TEST_ADDR_V6))
-            .times(1);
-        mock_resolver.expect_ipv4_lookup().never();
+        let mut resolver = DnsResolver::faux();
+        when!(resolver.ipv6_lookup("myip.opendns.com.")).then(|_| Ok(TEST_ADDR_V6));
 
         assert_eq!(
-            resolve_ip(IpType::V6, mock_resolver).await.unwrap(),
+            resolve_ip(IpType::V6, resolver).await.unwrap(),
             TEST_ADDR_V6
         );
 
         // test that resolve_ip fails if resolution fails, including due to an
         // empty response
-        let mut mock_resolver = MockDnsResolverTrait::new();
-        mock_resolver
-            .expect_ipv6_lookup()
-            .with(predicate::eq("myip.opendns.com."))
-            .returning(|_| Err(anyhow!("DNS resolution failure")))
-            .times(1);
-        mock_resolver.expect_ipv4_lookup().never();
+        let mut resolver = DnsResolver::faux();
+        when!(resolver.ipv6_lookup("myip.opendns.com."))
+            .then(|_| Err(anyhow!("DNS resolution failure")));
 
-        assert!(resolve_ip(IpType::V6, mock_resolver).await.is_err());
+        assert!(resolve_ip(IpType::V6, resolver).await.is_err());
     }
 }

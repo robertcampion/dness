@@ -22,7 +22,6 @@ handlebars = "6.1"
 clap = { version = "4.4.6", features = ["derive"] }
 futures = "0.3"
 anyhow = "1.0"
-mockall = "0.14.0"
 
 [target.'cfg(target_env = "musl")'.dependencies]
 mimalloc = "0.1.43"
@@ -51,6 +50,7 @@ features = ["color", "auto-color", "regex"]
 [dev-dependencies]
 assert_cmd = "2.0"
 rouille = "3"
+mockall = "0.14.0"
 
 [package.metadata.deb]
 extended-description = """dness is a command line dynamic dns client"""

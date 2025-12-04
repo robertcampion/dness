@@ -46,7 +46,7 @@ fn opendns_config(ip_type: IpType) -> ResolverConfig {
 }
 
 /// Trait to mock DnsResolver for testing
-#[mockall::automock]
+#[cfg_attr(test, mockall::automock)]
 trait DnsResolverTrait {
     async fn ipv4_lookup(&self, host: &str) -> Result<Ipv4Addr>;
     async fn ipv6_lookup(&self, host: &str) -> Result<Ipv6Addr>;

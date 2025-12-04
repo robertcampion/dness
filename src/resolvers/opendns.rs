@@ -54,10 +54,10 @@ trait DnsResolverTrait {
 
 impl DnsResolverTrait for DnsResolver {
     async fn ipv4_lookup(&self, host: &str) -> Result<Ipv4Addr> {
-        Ok(self.ipv4_lookup(host).await?)
+        self.ipv4_lookup(host).await
     }
     async fn ipv6_lookup(&self, host: &str) -> Result<Ipv6Addr> {
-        Ok(self.ipv6_lookup(host).await?)
+        self.ipv6_lookup(host).await
     }
 }
 

@@ -1,7 +1,4 @@
-use std::{error, fmt};
-
 use anyhow::{Context as _, Result};
-use hickory_resolver::error::ResolveError;
 use serde::de::DeserializeOwned;
 
 pub trait ClientErrorWrapper {
@@ -44,36 +41,5 @@ impl ClientErrorWrapper for reqwest::RequestBuilder {
         response.json().await.with_context(|| {
             format!("unable to deserialize response for {context}: url attempted: {url}",)
         })
-    }
-}
-
-#[derive(Debug)]
-pub struct DnsError {
-    pub kind: Box<DnsErrorKind>,
-}
-
-#[derive(Debug)]
-pub enum DnsErrorKind {
-    DnsResolve(ResolveError),
-    UnexpectedResponse(usize),
-}
-
-impl error::Error for DnsError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match *self.kind {
-            DnsErrorKind::DnsResolve(ref e) => Some(e),
-            DnsErrorKind::UnexpectedResponse(_) => None,
-        }
-    }
-}
-
-impl fmt::Display for DnsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &*self.kind {
-            DnsErrorKind::DnsResolve(_) => write!(f, "could not resolve via dns"),
-            DnsErrorKind::UnexpectedResponse(results) => {
-                write!(f, "unexpected number of results: {}", results)
-            }
-        }
     }
 }

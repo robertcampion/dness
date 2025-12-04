@@ -1,9 +1,8 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
+use anyhow::{anyhow, Context as _, Result};
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
 use hickory_resolver::TokioAsyncResolver;
-
-use crate::errors::{DnsError, DnsErrorKind};
 
 #[derive(Debug)]
 pub struct DnsResolver {
@@ -11,40 +10,44 @@ pub struct DnsResolver {
 }
 
 macro_rules! lookup {
-    ($method:ident, $addr_type:ident) => {
-        pub async fn $method(&self, host: &str) -> Result<$addr_type, DnsError> {
-            let response = self.resolver.$method(host).await.map_err(|e| DnsError {
-                kind: Box::new(DnsErrorKind::DnsResolve(e)),
-            })?;
+    ($method:ident, $method_all:ident, $addr_type:path) => {
+        pub async fn $method_all(&self, host: &str) -> Result<Vec<$addr_type>> {
+            let response = self
+                .resolver
+                .$method(host)
+                .await
+                .context("could not resolve via dns")?;
+            Ok(response.iter().map(|record| record.0).collect())
+        }
 
-            response
-                .iter()
-                .next()
-                .map(|address| address.0)
-                .ok_or_else(|| DnsError {
-                    kind: Box::new(DnsErrorKind::UnexpectedResponse(0)),
-                })
+        pub async fn $method(&self, host: &str) -> Result<$addr_type> {
+            let addrs = self.$method_all(host).await?;
+            if addrs.len() == 1 {
+                Ok(addrs[0])
+            } else {
+                Err(anyhow!("unexpected number of results: {}", addrs.len()))
+            }
         }
     };
 }
 
 impl DnsResolver {
-    pub async fn create_opendns() -> Result<Self, DnsError> {
+    pub async fn create_opendns() -> Result<Self> {
         Self::from_config(config_opendns()).await
     }
 
-    pub async fn create_cloudflare() -> Result<Self, DnsError> {
+    pub async fn create_cloudflare() -> Result<Self> {
         Self::from_config(ResolverConfig::cloudflare()).await
     }
 
-    pub async fn from_config(config: ResolverConfig) -> Result<Self, DnsError> {
+    pub async fn from_config(config: ResolverConfig) -> Result<Self> {
         let resolver = TokioAsyncResolver::tokio(config, ResolverOpts::default());
 
         Ok(DnsResolver { resolver })
     }
 
-    lookup!(ipv4_lookup, Ipv4Addr);
-    lookup!(ipv6_lookup, Ipv6Addr);
+    lookup!(ipv4_lookup, ipv4_lookup_all, Ipv4Addr);
+    lookup!(ipv6_lookup, ipv6_lookup_all, Ipv6Addr);
 }
 
 pub fn config_opendns() -> ResolverConfig {
@@ -83,35 +86,79 @@ pub const OPENDNS_IPS: &[IpAddr] = &[
 mod tests {
     use super::*;
 
+    fn ipv4_is_global(addr: &Ipv4Addr) -> bool {
+        !(addr.is_unspecified()
+            || addr.is_private()
+            || addr.is_loopback()
+            || addr.is_link_local()
+            || addr.is_documentation()
+            || addr.is_broadcast())
+    }
+
+    fn ipv6_is_global(addr: &Ipv6Addr) -> bool {
+        !(addr.is_unspecified()
+            || addr.is_loopback()
+            || addr.is_unique_local()
+            || addr.is_unicast_link_local())
+    }
+
     #[tokio::test]
     async fn opendns_lookup_ipv4_test() {
         // Heads up: this test requires internet connectivity
         let resolver = DnsResolver::create_opendns().await.unwrap();
-        let ip = resolver.ipv4_lookup("example.com.").await.unwrap();
-        assert!(!ip.is_loopback());
+        let ips = resolver.ipv4_lookup_all("example.com.").await.unwrap();
+        assert!(!ips.is_empty(), "ips should be nonemtpy");
+        for ip in ips {
+            assert!(
+                ipv4_is_global(&ip),
+                "{} should be a globally routable address",
+                ip
+            );
+        }
     }
 
     #[tokio::test]
     async fn opendns_lookup_ipv6_test() {
         // Heads up: this test requires internet connectivity
         let resolver = DnsResolver::create_opendns().await.unwrap();
-        let ip = resolver.ipv6_lookup("example.com.").await.unwrap();
-        assert!(!ip.is_loopback());
+        let ips = resolver.ipv6_lookup_all("example.com.").await.unwrap();
+        assert!(!ips.is_empty(), "ips should be nonemtpy");
+        for ip in ips {
+            assert!(
+                ipv6_is_global(&ip),
+                "{} should be a globally routable address",
+                ip
+            );
+        }
     }
 
     #[tokio::test]
     async fn cloudflare_lookup_ipv4_test() {
         // Heads up: this test requires internet connectivity
         let resolver = DnsResolver::create_cloudflare().await.unwrap();
-        let ip = resolver.ipv4_lookup("example.com.").await.unwrap();
-        assert!(!ip.is_loopback());
+        let ips = resolver.ipv4_lookup_all("example.com.").await.unwrap();
+        assert!(!ips.is_empty(), "ips should be nonemtpy");
+        for ip in ips {
+            assert!(
+                ipv4_is_global(&ip),
+                "{} should be a globally routable address",
+                ip
+            );
+        }
     }
 
     #[tokio::test]
     async fn cloudflare_lookup_ipv6_test() {
         // Heads up: this test requires internet connectivity
         let resolver = DnsResolver::create_cloudflare().await.unwrap();
-        let ip = resolver.ipv6_lookup("example.com.").await.unwrap();
-        assert!(!ip.is_loopback());
+        let ips = resolver.ipv6_lookup_all("example.com.").await.unwrap();
+        assert!(!ips.is_empty(), "ips should be nonemtpy");
+        for ip in ips {
+            assert!(
+                ipv6_is_global(&ip),
+                "{} should be a globally routable address",
+                ip
+            );
+        }
     }
 }

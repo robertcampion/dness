@@ -1,0 +1,21 @@
+networks:
+  ip6net:
+    enable_ipv6: true
+
+services:
+  ipv4:
+    build: .
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+
+  ipv6-ipv4inet:
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    build: .
+
+  ipv6:
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    build: .
+    networks:
+      - ip6net

@@ -1,0 +1,29 @@
+[log]
+level = "debug"
+
+[[domains]]
+type = "godaddy"
+base_url = "https://api.ote-godaddy.com/"
+key = "{{GODADDY_API_KEY}}"
+secret = "{{GODADDY_API_SECRET}}"
+domain = "dness-test-domain-02.com"
+records = ["@"]
+ip_types = ["4", "6"]
+
+[[domains]]
+type = "godaddy"
+base_url = "https://api.ote-godaddy.com/"
+key = "{{GODADDY_API_KEY}}"
+secret = "{{GODADDY_API_SECRET}}"
+domain = "dness-test-domain-02.com"
+records = ["ipv4"]
+ip_types = ["4"]
+
+[[domains]]
+type = "godaddy"
+base_url = "https://api.ote-godaddy.com/"
+key = "{{GODADDY_API_KEY}}"
+secret = "{{GODADDY_API_SECRET}}"
+domain = "dness-test-domain-02.com"
+records = ["ipv6"]
+ip_types = ["6"]

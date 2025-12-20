@@ -1,0 +1,23 @@
+[log]
+level = "debug"
+
+[[domains]]
+type = "cloudflare"
+token = "{{CLOUDFLARE_API_TOKEN}}"
+zone = "rcampion.com"
+records = ["dness-test-domain.rcampion.com"]
+ip_types = ["4", "6"]
+
+[[domains]]
+type = "cloudflare"
+token = "{{CLOUDFLARE_API_TOKEN}}"
+zone = "rcampion.com"
+records = ["ipv6.dness-test-domain.rcampion.com"]
+ip_types = ["6"]
+
+[[domains]]
+type = "cloudflare"
+token = "{{CLOUDFLARE_API_TOKEN}}"
+zone = "rcampion.com"
+records = ["ipv4.dness-test-domain.rcampion.com"]
+ip_types = ["4"]

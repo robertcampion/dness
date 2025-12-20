@@ -45,6 +45,7 @@ features = ["color", "auto-color", "regex"]
 
 [dev-dependencies]
 assert_cmd = "2.0"
+dotenvy = "0.15.7"
 rouille = "3"
 
 [package.metadata.deb]

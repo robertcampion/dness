@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+cargo test -- --include-ignored && docker compose run --build --rm ipv4 && docker compose run --rm ipv6-ipv4inet && docker compose run --rm ipv6

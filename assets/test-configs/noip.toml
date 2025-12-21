@@ -1,0 +1,16 @@
+[log]
+level = "debug"
+
+[[domains]]
+type = "noip"
+hostname = "dness06.ddns.net"
+username = "{{NOIP_USERNAME}}"
+password = "{{NOIP_PASSWORD}}"
+
+ip_types = ["4", "6"]
+
+[[domains]]
+type = "noip"
+hostname = "dness05.ddns.net"
+username = "{{NOIP_USERNAME}}"
+password = "{{NOIP_PASSWORD}}"

@@ -65,3 +65,9 @@ fn dynu_integration_test() {
 fn he_integration_test() {
     integration_test("he.toml")
 }
+
+#[test]
+#[ignore = "requires API key"]
+fn noip_integration_test() {
+    integration_test("noip.toml")
+}

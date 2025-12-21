@@ -59,3 +59,9 @@ fn godaddy_integration_test() {
 fn dynu_integration_test() {
     integration_test("dynu.toml")
 }
+
+#[test]
+#[ignore = "requires API key"]
+fn he_integration_test() {
+    integration_test("he.toml")
+}

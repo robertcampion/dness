@@ -1,0 +1,26 @@
+[log]
+level = "debug"
+
+[[domains]]
+type = "he"
+hostname = "dness-test-domain-04.rcampion.com"
+password = "{{HE_PASSWORD_APEX}}"
+
+records = ["@"]
+ip_types = ["4", "6"]
+
+[[domains]]
+type = "he"
+hostname = "dness-test-domain-04.rcampion.com"
+password = "{{HE_PASSWORD_IPV4}}"
+
+records = ["ipv4"]
+ip_types = ["4"]
+
+[[domains]]
+type = "he"
+hostname = "dness-test-domain-04.rcampion.com"
+password = "{{HE_PASSWORD_IPV6}}"
+
+records = ["ipv6"]
+ip_types = ["6"]

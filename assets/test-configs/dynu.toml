@@ -1,0 +1,29 @@
+[log]
+level = "debug"
+
+[[domains]]
+type = "dynu"
+hostname = "dness-test-domain-03.ddnsfree.com"
+username = "{{DYNU_USERNAME}}"
+password = "{{DYNU_PASSWORD}}"
+
+records = ["@"]
+ip_types = ["4", "6"]
+
+[[domains]]
+type = "dynu"
+hostname = "dness-test-domain-03.ddnsfree.com"
+username = "{{DYNU_USERNAME}}"
+password = "{{DYNU_PASSWORD}}"
+
+records = ["ipv4"]
+ip_types = ["4"]
+
+[[domains]]
+type = "dynu"
+hostname = "dness-test-domain-03.ddnsfree.com"
+username = "{{DYNU_USERNAME}}"
+password = "{{DYNU_PASSWORD}}"
+
+records = ["ipv6"]
+ip_types = ["6"]

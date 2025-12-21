@@ -53,3 +53,9 @@ fn cloudflare_integration_test() {
 fn godaddy_integration_test() {
     integration_test("godaddy.toml")
 }
+
+#[test]
+#[ignore = "requires API key"]
+fn dynu_integration_test() {
+    integration_test("dynu.toml")
+}

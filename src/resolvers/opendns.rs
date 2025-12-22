@@ -64,7 +64,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // GitHub runner doesn't have IPv6 internet connectivity
+    #[ignore = "requires IPv6 internet connectivity"]
     async fn opendns_lookup_ipv6_test() {
         // Heads up: this test requires internet connectivity
         match wan_lookup_ip(IpType::V6).await {

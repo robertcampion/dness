@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     fn deserialize_cloudflare_error() {
-        let json_str = &include_str!("../assets/cloudflare-error.json");
+        let json_str = &include_str!("../../assets/cloudflare-error.json");
         let response: CloudflareResponse<String> = serde_json::from_str(json_str).unwrap();
         assert_eq!(
             response,
@@ -441,7 +441,7 @@ mod tests {
 
     #[test]
     fn deserialize_cloudflare_zone() {
-        let json_str = &include_str!("../assets/cloudflare-zone-response.json");
+        let json_str = &include_str!("../../assets/cloudflare-zone-response.json");
         let response: CloudflareResponse<Vec<CloudflareZone>> =
             serde_json::from_str(json_str).unwrap();
 
@@ -467,7 +467,7 @@ mod tests {
 
     #[test]
     fn deserialize_cloudflare_update_a_response() {
-        let json_str = &include_str!("../assets/cloudflare-update-a-response.json");
+        let json_str = &include_str!("../../assets/cloudflare-update-a-response.json");
         let response: CloudflareResponse<CloudflareDnsRecord> =
             serde_json::from_str(json_str).unwrap();
 
@@ -488,7 +488,7 @@ mod tests {
 
     #[test]
     fn deserialize_cloudflare_update_aaaa_response() {
-        let json_str = &include_str!("../assets/cloudflare-update-aaaa-response.json");
+        let json_str = &include_str!("../../assets/cloudflare-update-aaaa-response.json");
         let response: CloudflareResponse<CloudflareDnsRecord> =
             serde_json::from_str(json_str).unwrap();
 

@@ -93,92 +93,9 @@ impl DnsResolver {
     }
 }
 
-#[derive(Debug)]
-struct OpenDnsResolver {
-    resolver: DnsResolver,
-    ip_type: IpType,
-}
-
-impl OpenDnsResolver {
-    async fn create(ip_type: IpType) -> Result<Self, DnsError> {
-        let resolver = DnsResolver::create_opendns(ip_type).await?;
-        Ok(OpenDnsResolver { resolver, ip_type })
-    }
-
-    async fn wan_lookup(&self) -> Result<IpAddr, DnsError> {
-        const DOMAIN: &str = "myip.opendns.com.";
-        match self.ip_type {
-            IpType::V4 => self.resolver.ipv4_lookup(DOMAIN).await.map(Into::into),
-            IpType::V6 => self.resolver.ipv6_lookup(DOMAIN).await.map(Into::into),
-        }
-    }
-}
-
-pub async fn wan_lookup_ip(ip_type: IpType) -> Result<IpAddr, DnsError> {
-    let opendns = OpenDnsResolver::create(ip_type).await?;
-    opendns.wan_lookup().await
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test]
-    async fn opendns_lookup_ipv4_test() {
-        // Heads up: this test requires internet connectivity
-        match wan_lookup_ip(IpType::V4).await {
-            Ok(ip) => {
-                assert!(ip.is_ipv4());
-                assert!(!ip.is_loopback());
-            }
-            Err(e) => {
-                match e.kind.as_ref() {
-                    DnsErrorKind::DnsResolve(e) => {
-                        // Check if this is a "no records found" error (e.g., CGNAT scenario)
-                        if let hickory_resolver::ResolveErrorKind::Proto(proto_err) = e.kind() {
-                            if proto_err.is_no_records_found() {
-                                // This is fine, just means we're behind a CGNAT
-                                return;
-                            }
-                        }
-                        panic!("unexpected DNS error: {}", e);
-                    }
-                    DnsErrorKind::UnexpectedResponse(_) => {
-                        panic!("unexpected response: {}", e);
-                    }
-                }
-            }
-        }
-    }
-
-    #[tokio::test]
-    #[ignore] // GitHub runner doesn't have IPv6 internet connectivity
-    async fn opendns_lookup_ipv6_test() {
-        // Heads up: this test requires internet connectivity
-        match wan_lookup_ip(IpType::V6).await {
-            Ok(ip) => {
-                assert!(ip.is_ipv6());
-                assert!(!ip.is_loopback());
-            }
-            Err(e) => {
-                match e.kind.as_ref() {
-                    DnsErrorKind::DnsResolve(e) => {
-                        // Check if this is a "no records found" error (e.g., CGNAT scenario)
-                        if let hickory_resolver::ResolveErrorKind::Proto(proto_err) = e.kind() {
-                            if proto_err.is_no_records_found() {
-                                // This is fine, just means we're behind a CGNAT
-                                return;
-                            }
-                        }
-                        panic!("unexpected DNS error: {}", e);
-                    }
-                    DnsErrorKind::UnexpectedResponse(_) => {
-                        panic!("unexpected response: {}", e);
-                    }
-                }
-            }
-        }
-    }
 
     #[tokio::test]
     async fn cloudflare_lookup_ipv4_test() {

@@ -117,7 +117,7 @@ mod tests {
             let server = Server::new("localhost:0", |request| match request.url().as_str() {
                 "/update" => Response::from_data(
                     "text/html",
-                    include_bytes!("../assets/namecheap-update.xml").to_vec(),
+                    include_bytes!("../../assets/namecheap-update.xml").to_vec(),
                 ),
                 _ => Response::empty_404(),
             })

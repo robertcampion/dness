@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn deserialize_go_records() {
-        let json_str = &include_str!("../assets/godaddy-get-records.json");
+        let json_str = &include_str!("../../assets/godaddy-get-records.json");
         let response: Vec<GoRecord> = serde_json::from_str(json_str).unwrap();
         let mut expected = Map::new();
         expected.insert(String::from("ttl"), Value::Number(600.into()));
@@ -220,7 +220,7 @@ mod tests {
             let server = Server::new("localhost:0", |request| match request.url().as_str() {
                 "/v1/domains/domain-1.com/records/A" => Response::from_data(
                     "application/json",
-                    include_bytes!("../assets/godaddy-get-records.json").to_vec(),
+                    include_bytes!("../../assets/godaddy-get-records.json").to_vec(),
                 ),
                 "/v1/domains/domain-1.com/records/A/@" => Response::text("Nice job!"),
                 "/v1/domains/domain-2.com/records/A" => Response::from_data(

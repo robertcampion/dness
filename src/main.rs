@@ -1,14 +1,9 @@
-mod cloudflare;
 mod config;
 mod core;
 mod dns;
-mod dynu;
 mod errors;
-mod godaddy;
-mod he;
-mod namecheap;
-mod noip;
-mod porkbun;
+mod providers;
+mod resolvers;
 
 // Avoid musl's default allocator due to lackluster performance
 // https://nickb.dev/blog/default-musl-allocator-considered-harmful-to-performance
@@ -16,10 +11,8 @@ mod porkbun;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-use crate::config::{parse_config, DnsConfig, DomainConfig, IpType};
+use crate::config::{parse_config, DnsConfig, IpType};
 use crate::core::Updates;
-use crate::dns::wan_lookup_ip;
-use crate::errors::DnessError;
 use chrono::Duration;
 use clap::Parser;
 use log::{error, info, LevelFilter};
@@ -80,86 +73,10 @@ fn init_configuration<T: AsRef<Path>>(file: Option<T>) -> DnsConfig {
     }
 }
 
-async fn ipify_resolve_ip(client: &reqwest::Client, ip_type: IpType) -> Result<IpAddr, DnessError> {
-    let ipify_url = match ip_type {
-        IpType::V4 => "https://api.ipify.org/",
-        IpType::V6 => "https://api6.ipify.org/",
-    };
-    let ip_text = client
-        .get(ipify_url)
-        .send()
-        .await
-        .map_err(|e| DnessError::send_http(ipify_url, "ipify get ip", e))?
-        .error_for_status()
-        .map_err(|e| DnessError::bad_response(ipify_url, "ipify get ip", e))?
-        .text()
-        .await
-        .map_err(|e| DnessError::deserialize(ipify_url, "ipify get ip", e))?;
-
-    let ip = ip_text
-        .parse::<IpAddr>()
-        .map_err(|_| DnessError::message(format!("unable to parse {} as an ip", &ip_text)))?;
-    Ok(ip)
-}
-
-/// Resolves the WAN IP or exits with a non-zero status code
-async fn resolve_ip(
-    client: &reqwest::Client,
-    config: &DnsConfig,
-    ip_type: IpType,
-) -> Result<IpAddr, DnessError> {
-    match config.ip_resolver.to_ascii_lowercase().as_str() {
-        "opendns" => wan_lookup_ip(ip_type).await.map_err(|x| x.into()),
-        "ipify" => ipify_resolve_ip(client, ip_type).await,
-        _ => {
-            error!("unrecognized ip resolver: {}", config.ip_resolver);
-            std::process::exit(1)
-        }
-    }
-}
-
 fn elapsed(start: Instant) -> String {
     Duration::from_std(Instant::now().duration_since(start))
         .map(|x| format!("{}ms", x.num_milliseconds()))
         .unwrap_or_else(|_| String::from("<error>"))
-}
-
-async fn update_provider(
-    http_client: &reqwest::Client,
-    addr: IpAddr,
-    domain: &DomainConfig,
-) -> Result<Updates, Box<dyn std::error::Error>> {
-    match domain {
-        DomainConfig::Cloudflare(domain_config) => {
-            cloudflare::update_domains(http_client, domain_config, addr)
-                .await
-                .map_err(|e| e.into())
-        }
-        DomainConfig::GoDaddy(domain_config) => {
-            godaddy::update_domains(http_client, domain_config, addr)
-                .await
-                .map_err(|e| e.into())
-        }
-        DomainConfig::Namecheap(domain_config) => {
-            namecheap::update_domains(http_client, domain_config, addr)
-                .await
-                .map_err(|e| e.into())
-        }
-        DomainConfig::He(domain_config) => he::update_domains(http_client, domain_config, addr)
-            .await
-            .map_err(|e| e.into()),
-        DomainConfig::NoIp(domain_config) => noip::update_domains(http_client, domain_config, addr)
-            .await
-            .map_err(|e| e.into()),
-        DomainConfig::Dynu(domain_config) => dynu::update_domains(http_client, domain_config, addr)
-            .await
-            .map_err(|e| e.into()),
-        DomainConfig::Porkbun(domain_config) => {
-            porkbun::update_domains(http_client, domain_config, addr)
-                .await
-                .map_err(|e| e.into())
-        }
-    }
 }
 
 #[tokio::main]
@@ -194,7 +111,7 @@ async fn main() {
     let addrs: Vec<Option<IpAddr>> =
         futures::future::join_all(ip_types.iter().map(async |ip_type| {
             let start_resolve = Instant::now();
-            match resolve_ip(&http_client, &config, *ip_type).await {
+            match resolvers::resolve_ip(&http_client, &config, *ip_type).await {
                 Ok(addr) => {
                     info!("resolved address to {} in {}", addr, elapsed(start_resolve));
                     Some(addr)
@@ -220,7 +137,7 @@ async fn main() {
                 continue;
             }
             let start_update = Instant::now();
-            match update_provider(&http_client, *addr, &d).await {
+            match providers::update_provider(&http_client, *addr, &d).await {
                 Ok(updates) => {
                     info!(
                         "processed {}: ({}) in {}",

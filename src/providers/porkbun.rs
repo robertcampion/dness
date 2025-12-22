@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn deserialize_porkbun_response() {
-        let json_str = &include_str!("../assets/porkbun-get-records.json");
+        let json_str = &include_str!("../../assets/porkbun-get-records.json");
         let response: PorkbunResponse = serde_json::from_str(json_str).unwrap();
         let mut expected_1 = Map::new();
         expected_1.insert(String::from("notes"), Value::String(String::from("")));
@@ -273,7 +273,7 @@ mod tests {
             let server = Server::new("localhost:0", |request| match request.url().as_str() {
                 "/api/json/v3/dns/retrieve/example.com" => Response::from_data(
                     "application/json",
-                    include_bytes!("../assets/porkbun-get-records.json").to_vec(),
+                    include_bytes!("../../assets/porkbun-get-records.json").to_vec(),
                 ),
                 "/api/json/v3/dns/edit/example.com/356408594" => {
                     Response::from_data("application/json", r#"{"status": "SUCCESS"}"#)

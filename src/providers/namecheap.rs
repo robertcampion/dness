@@ -64,7 +64,7 @@ pub async fn update_domains(
             "IPv6 not supported for Namecheap",
         )));
     };
-    let resolver = DnsResolver::create_cloudflare().await?;
+    let resolver = DnsResolver::create_cloudflare();
     let namecheap = NamecheapProvider { client, config };
 
     let mut results = Updates::default();

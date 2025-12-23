@@ -11,7 +11,7 @@ pub struct DnsResolver {
 }
 
 impl DnsResolver {
-    pub async fn create_opendns(ip_type: IpType) -> Result<Self, DnsError> {
+    pub fn create_opendns(ip_type: IpType) -> Self {
         let ips = // OpenDNS nameservers:
                 // https://en.wikipedia.org/wiki/OpenDNS#Name_server_IP_addresses
                 match ip_type {
@@ -31,18 +31,18 @@ impl DnsResolver {
             NameServerConfigGroup::from_ips_clear(&ips, 53, false),
         );
 
-        Self::from_config(config).await
+        Self::from_config(config)
     }
 
-    pub async fn create_cloudflare() -> Result<Self, DnsError> {
-        Self::from_config(ResolverConfig::cloudflare()).await
+    pub fn create_cloudflare() -> Self {
+        Self::from_config(ResolverConfig::cloudflare())
     }
 
-    pub async fn from_config(config: ResolverConfig) -> Result<Self, DnsError> {
-        let resolver = TokioResolver::builder_with_config(config, TokioConnectionProvider::default())
-            .build();
+    pub fn from_config(config: ResolverConfig) -> Self {
+        let resolver =
+            TokioResolver::builder_with_config(config, TokioConnectionProvider::default()).build();
 
-        Ok(DnsResolver { resolver })
+        DnsResolver { resolver }
     }
 
     pub async fn ipv4_lookup(&self, host: &str) -> Result<Ipv4Addr, DnsError> {
@@ -100,7 +100,7 @@ mod tests {
     #[tokio::test]
     async fn cloudflare_lookup_ipv4_test() {
         // Heads up: this test requires internet connectivity
-        let resolver = DnsResolver::create_cloudflare().await.unwrap();
+        let resolver = DnsResolver::create_cloudflare();
         let ip = resolver.ipv4_lookup("example.com.").await.unwrap();
         assert!(!ip.is_loopback());
     }
@@ -109,7 +109,7 @@ mod tests {
     #[ignore = "requires IPv6 internet connectivity"]
     async fn cloudflare_lookup_ipv6_test() {
         // Heads up: this test requires internet connectivity
-        let resolver = DnsResolver::create_cloudflare().await.unwrap();
+        let resolver = DnsResolver::create_cloudflare();
         let ip = resolver.ipv6_lookup("example.com.").await.unwrap();
         assert!(!ip.is_loopback());
     }

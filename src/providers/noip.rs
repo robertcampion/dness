@@ -46,7 +46,7 @@ pub async fn update_domains(
     config: &NoIpConfig,
     wan: IpAddr,
 ) -> Result<Updates, DnessError> {
-    let resolver = DnsResolver::create_cloudflare().await?;
+    let resolver = DnsResolver::create_cloudflare();
     let dns_query = format!("{}.", &config.hostname);
     let response = resolver.ip_lookup(&dns_query, wan.into()).await;
     let provider = NoIpProvider { client, config };

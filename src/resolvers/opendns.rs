@@ -5,7 +5,7 @@ use crate::dns::DnsResolver;
 use crate::errors::DnsError;
 
 pub async fn wan_lookup_ip(ip_type: IpType) -> Result<IpAddr, DnsError> {
-    let opendns = OpenDnsResolver::create(ip_type).await?;
+    let opendns = OpenDnsResolver::create(ip_type);
     opendns.wan_lookup().await
 }
 
@@ -16,9 +16,9 @@ struct OpenDnsResolver {
 }
 
 impl OpenDnsResolver {
-    async fn create(ip_type: IpType) -> Result<Self, DnsError> {
-        let resolver = DnsResolver::create_opendns(ip_type).await?;
-        Ok(OpenDnsResolver { resolver, ip_type })
+    fn create(ip_type: IpType) -> Self {
+        let resolver = DnsResolver::create_opendns(ip_type);
+        OpenDnsResolver { resolver, ip_type }
     }
 
     async fn wan_lookup(&self) -> Result<IpAddr, DnsError> {

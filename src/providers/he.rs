@@ -54,7 +54,7 @@ pub async fn update_domains(
 ) -> Result<Updates, DnessError> {
     // uses the same strategy as namecheap where we get the current records
     // via dns and check if they need to be updated
-    let resolver = DnsResolver::create_cloudflare().await?;
+    let resolver = DnsResolver::create_cloudflare();
     let he = HeProvider { config };
 
     let mut results = Updates::default();

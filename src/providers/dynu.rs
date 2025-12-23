@@ -65,7 +65,7 @@ pub async fn update_domains(
     config: &DynuConfig,
     wan: IpAddr,
 ) -> Result<Updates, DnessError> {
-    let resolver = DnsResolver::create_cloudflare().await?;
+    let resolver = DnsResolver::create_cloudflare();
     let dynu_provider = DynuProvider { client, config };
 
     let mut results = Updates::default();

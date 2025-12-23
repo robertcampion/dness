@@ -13,7 +13,7 @@ pub struct DynuProvider<'a> {
 
 impl DynuProvider<'_> {
     pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<(), DnessError> {
-        let base = self.config.base_url.trim_end_matches('/').to_string();
+        let base = self.config.base_url.trim_end_matches('/');
         let get_url = format!("{base}/nic/update");
         let mut params = vec![("hostname", self.config.hostname.clone())];
 

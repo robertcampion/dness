@@ -72,6 +72,25 @@ fn init_configuration<T: AsRef<Path>>(file: Option<T>) -> DnsConfig {
     }
 }
 
+fn init_client() -> reqwest::Client {
+    const USER_AGENT: &str = concat!(
+        env!("CARGO_PKG_NAME"),
+        "/",
+        env!("CARGO_PKG_VERSION"),
+        " (",
+        env!("CARGO_PKG_HOMEPAGE"),
+        ")"
+    );
+
+    reqwest::Client::builder()
+        .user_agent(USER_AGENT)
+        .build()
+        .unwrap_or_else(|err| {
+            log_err("could not create HTTP client", &err);
+            std::process::exit(1);
+        })
+}
+
 #[tokio::main]
 async fn main() {
     let start = Instant::now();
@@ -81,7 +100,7 @@ async fn main() {
     init_logging(config.log.level);
 
     // Use a single HTTP client when updating dns records so that connections can be reused
-    let http_client = reqwest::Client::new();
+    let http_client = init_client();
 
     let mut ip_types: Vec<IpType> = if config.domains.is_empty() {
         vec![IpType::V4]

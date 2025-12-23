@@ -45,51 +45,37 @@ impl DnsResolver {
         DnsResolver { resolver }
     }
 
-    pub async fn ipv4_lookup(&self, host: &str) -> Result<Ipv4Addr, DnsError> {
-        // When we query opendns for the special domain of "myip.opendns.com" it will return to us
-        // our IP
-        let response = self
-            .resolver
-            .ipv4_lookup(host)
-            .await
-            .map_err(|e| DnsError {
-                kind: Box::new(DnsErrorKind::DnsResolve(e)),
-            })?;
-
-        response
-            .iter()
-            .next()
-            .map(|address| address.0)
-            .ok_or_else(|| DnsError {
-                kind: Box::new(DnsErrorKind::UnexpectedResponse(0)),
-            })
-    }
-
-    pub async fn ipv6_lookup(&self, host: &str) -> Result<Ipv6Addr, DnsError> {
-        // When we query opendns for the special domain of "myip.opendns.com" it will return to us
-        // our IP
-        let response = self
-            .resolver
-            .ipv6_lookup(host)
-            .await
-            .map_err(|e| DnsError {
-                kind: Box::new(DnsErrorKind::DnsResolve(e)),
-            })?;
-
-        response
-            .iter()
-            .next()
-            .map(|address| address.0)
-            .ok_or_else(|| DnsError {
-                kind: Box::new(DnsErrorKind::UnexpectedResponse(0)),
-            })
-    }
-
     pub async fn ip_lookup(&self, host: &str, ip_type: IpType) -> Result<IpAddr, DnsError> {
-        Ok(match ip_type {
-            IpType::V4 => self.ipv4_lookup(host).await?.into(),
-            IpType::V6 => self.ipv6_lookup(host).await?.into(),
-        })
+        let addrs: Vec<IpAddr> = match ip_type {
+            IpType::V4 => self
+                .resolver
+                .ipv4_lookup(host)
+                .await
+                .map_err(|e| DnsError {
+                    kind: DnsErrorKind::DnsResolve(Box::new(e)),
+                })?
+                .iter()
+                .map(|r| r.0.into())
+                .collect(),
+            IpType::V6 => self
+                .resolver
+                .ipv6_lookup(host)
+                .await
+                .map_err(|e| DnsError {
+                    kind: DnsErrorKind::DnsResolve(Box::new(e)),
+                })?
+                .iter()
+                .map(|r| r.0.into())
+                .collect(),
+        };
+        // error unless we got exactly one address
+        if let [addr] = addrs.as_slice() {
+            Ok(*addr)
+        } else {
+            Err(DnsError {
+                kind: DnsErrorKind::UnexpectedResponse(addrs.len()),
+            })
+        }
     }
 }
 
@@ -101,7 +87,10 @@ mod tests {
     async fn cloudflare_lookup_ipv4_test() {
         // Heads up: this test requires internet connectivity
         let resolver = DnsResolver::create_cloudflare();
-        let ip = resolver.ipv4_lookup("example.com.").await.unwrap();
+        let ip = resolver
+            .ip_lookup("d.root-servers.net.", IpType::V4)
+            .await
+            .unwrap();
         assert!(!ip.is_loopback());
     }
 
@@ -110,7 +99,10 @@ mod tests {
     async fn cloudflare_lookup_ipv6_test() {
         // Heads up: this test requires internet connectivity
         let resolver = DnsResolver::create_cloudflare();
-        let ip = resolver.ipv6_lookup("example.com.").await.unwrap();
+        let ip = resolver
+            .ip_lookup("d.root-servers.net.", IpType::V6)
+            .await
+            .unwrap();
         assert!(!ip.is_loopback());
     }
 }

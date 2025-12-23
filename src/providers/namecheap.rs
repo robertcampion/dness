@@ -1,4 +1,4 @@
-use crate::config::NamecheapConfig;
+use crate::config::{IpType, NamecheapConfig};
 use crate::core::Updates;
 use crate::dns::DnsResolver;
 use crate::errors::DnessError;
@@ -75,7 +75,7 @@ pub async fn update_domains(
             format!("{}.{}.", record, config.domain)
         };
 
-        let response = resolver.ipv4_lookup(&dns_query).await;
+        let response = resolver.ip_lookup(&dns_query, IpType::V4).await;
 
         match response {
             Ok(ip) => {
@@ -141,9 +141,9 @@ mod tests {
         let new_ip = IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2));
         let config = NamecheapConfig {
             base_url: format!("http://{}", addr),
-            domain: String::from("example.com"),
+            domain: String::from("root-servers.net"),
             ddns_password: String::from("secret-1"),
-            records: vec![String::from("@")],
+            records: vec![String::from("d")],
         };
 
         let summary = update_domains(&http_client, &config, new_ip).await.unwrap();

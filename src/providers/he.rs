@@ -135,9 +135,9 @@ mod tests {
         let new_ip = IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2));
         let config = HeConfig {
             base_url: format!("http://{}", addr),
-            hostname: String::from("example.com"),
+            hostname: String::from("root-servers.net"),
             password: String::from("secret-1"),
-            records: vec![String::from("@")],
+            records: vec![String::from("d")],
             ip_types: vec![IpType::V4],
         };
 

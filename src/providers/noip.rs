@@ -115,7 +115,7 @@ mod tests {
         let new_ip = IpAddr::V4(Ipv4Addr::new(2, 2, 2, 2));
         let config = NoIpConfig {
             base_url: format!("http://{}", addr),
-            hostname: String::from("example.com"),
+            hostname: String::from("d.root-servers.net"),
             username: String::from("me@example.com"),
             password: String::from("my-pass"),
             ip_types: vec![IpType::V4],

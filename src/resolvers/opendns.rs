@@ -23,10 +23,7 @@ impl OpenDnsResolver {
 
     async fn wan_lookup(&self) -> Result<IpAddr, DnsError> {
         const DOMAIN: &str = "myip.opendns.com.";
-        match self.ip_type {
-            IpType::V4 => self.resolver.ipv4_lookup(DOMAIN).await.map(Into::into),
-            IpType::V6 => self.resolver.ipv6_lookup(DOMAIN).await.map(Into::into),
-        }
+        self.resolver.ip_lookup(DOMAIN, self.ip_type).await
     }
 }
 
@@ -44,7 +41,7 @@ mod tests {
                 assert!(!ip.is_loopback());
             }
             Err(e) => {
-                match e.kind.as_ref() {
+                match e.kind {
                     DnsErrorKind::DnsResolve(e) => {
                         // Check if this is a "no records found" error (e.g., CGNAT scenario)
                         if let hickory_resolver::ResolveErrorKind::Proto(proto_err) = e.kind() {
@@ -73,7 +70,7 @@ mod tests {
                 assert!(!ip.is_loopback());
             }
             Err(e) => {
-                match e.kind.as_ref() {
+                match e.kind {
                     DnsErrorKind::DnsResolve(e) => {
                         // Check if this is a "no records found" error (e.g., CGNAT scenario)
                         if let hickory_resolver::ResolveErrorKind::Proto(proto_err) = e.kind() {

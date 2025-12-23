@@ -7,32 +7,20 @@ use std::error;
 use std::fmt;
 use std::net::IpAddr;
 
-trait CloudflareAuthorizer: fmt::Debug {
-    fn with_auth(&self, request_builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder;
-}
-
 #[derive(Debug)]
-struct BearerAuthorizer {
-    token: String,
+enum CloudflareAuthorizer {
+    Bearer { token: String },
+    EmailKey { email: String, key: String },
 }
 
-impl CloudflareAuthorizer for BearerAuthorizer {
+impl CloudflareAuthorizer {
     fn with_auth(&self, request_builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        request_builder.bearer_auth(&self.token)
-    }
-}
-
-#[derive(Debug)]
-struct EmailKeyAuthorizer {
-    email: String,
-    key: String,
-}
-
-impl CloudflareAuthorizer for EmailKeyAuthorizer {
-    fn with_auth(&self, request_builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        request_builder
-            .header("X-Auth-Email", &self.email)
-            .header("X-Auth-Key", &self.key)
+        match self {
+            CloudflareAuthorizer::Bearer { token } => request_builder.bearer_auth(token),
+            CloudflareAuthorizer::EmailKey { email, key } => request_builder
+                .header("X-Auth-Email", email)
+                .header("X-Auth-Key", key),
+        }
     }
 }
 
@@ -82,7 +70,7 @@ struct CloudflareClient<'a> {
     zone_name: String,
     zone_id: String,
     records: HashSet<String>,
-    authorizer: Box<dyn CloudflareAuthorizer>,
+    authorizer: CloudflareAuthorizer,
     client: &'a reqwest::Client,
 }
 
@@ -135,18 +123,10 @@ impl fmt::Display for ClError {
     }
 }
 
-fn empty_to_none<P: AsRef<str>>(s: P) -> Option<P> {
-    if s.as_ref().is_empty() {
-        None
-    } else {
-        Some(s)
-    }
-}
-
-fn create_authorizer(config: &CloudflareConfig) -> Box<dyn CloudflareAuthorizer> {
-    let token = config.token.as_ref().and_then(empty_to_none);
-    let email = config.email.as_ref().and_then(empty_to_none);
-    let key = config.key.as_ref().and_then(empty_to_none);
+fn create_authorizer(config: &CloudflareConfig) -> CloudflareAuthorizer {
+    let token = config.token.as_ref().filter(|s| !s.is_empty());
+    let email = config.email.as_ref().filter(|s| !s.is_empty());
+    let key = config.key.as_ref().filter(|s| !s.is_empty());
 
     // One can create a cloudflare with either a token or email + key. We prefer the token approach
     // as that is considered more secure
@@ -158,14 +138,14 @@ fn create_authorizer(config: &CloudflareConfig) -> Box<dyn CloudflareAuthorizer>
             );
         }
 
-        Box::new(BearerAuthorizer {
-            token: token.to_string(),
-        })
-    } else if let Some((email, key)) = email.and_then(|x| key.map(|y| (x, y))) {
-        Box::new(EmailKeyAuthorizer {
-            email: email.to_string(),
-            key: key.to_string(),
-        })
+        CloudflareAuthorizer::Bearer {
+            token: token.clone(),
+        }
+    } else if let (Some(email), Some(key)) = (email, key) {
+        CloudflareAuthorizer::EmailKey {
+            email: email.clone(),
+            key: key.clone(),
+        }
     } else {
         // If neither are provided, log an error and create a dummy authorizer
         log::error!(
@@ -173,9 +153,9 @@ fn create_authorizer(config: &CloudflareConfig) -> Box<dyn CloudflareAuthorizer>
             &config.zone
         );
 
-        Box::new(BearerAuthorizer {
+        CloudflareAuthorizer::Bearer {
             token: "".to_string(),
-        })
+        }
     }
 }
 

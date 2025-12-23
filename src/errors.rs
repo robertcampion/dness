@@ -111,19 +111,19 @@ impl fmt::Display for DnessError {
 
 #[derive(Debug)]
 pub struct DnsError {
-    pub kind: Box<DnsErrorKind>,
+    pub kind: DnsErrorKind,
 }
 
 #[derive(Debug)]
 pub enum DnsErrorKind {
-    DnsResolve(ResolveError),
+    DnsResolve(Box<ResolveError>),
     UnexpectedResponse(usize),
 }
 
 impl error::Error for DnsError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match *self.kind {
-            DnsErrorKind::DnsResolve(ref e) => Some(e),
+        match self.kind {
+            DnsErrorKind::DnsResolve(ref e) => Some(e.as_ref()),
             DnsErrorKind::UnexpectedResponse(_) => None,
         }
     }
@@ -131,7 +131,7 @@ impl error::Error for DnsError {
 
 impl fmt::Display for DnsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &*self.kind {
+        match self.kind {
             DnsErrorKind::DnsResolve(_) => write!(f, "could not resolve via dns"),
             DnsErrorKind::UnexpectedResponse(results) => {
                 write!(f, "unexpected number of results: {results}")

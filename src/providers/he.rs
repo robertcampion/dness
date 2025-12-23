@@ -8,6 +8,7 @@ use std::net::IpAddr;
 #[derive(Debug)]
 pub struct HeProvider<'a> {
     config: &'a HeConfig,
+    client: &'a reqwest::Client,
 }
 
 impl HeProvider<'_> {
@@ -21,11 +22,14 @@ impl HeProvider<'_> {
             ("myip", &wan.to_string()),
         ];
 
-        // annoyingly it looks like he closes the connection on every update
-        // so we have to allocate a new client for every request
-        let client = reqwest::Client::new();
-        let response = client
+        let response = self
+            .client
             .post(&url)
+            // he.net closes the connection without sending a Connection: close
+            // header. So we need to intentionally downgrade from HTTP/1.1,
+            // where keep-alive is the default, to HTTP/1.0 so that reqwest will
+            // expect this behavior and not attempt to re-use the connection.
+            .version(reqwest::Version::HTTP_10)
             .form(&params)
             .send()
             .await
@@ -47,14 +51,14 @@ impl HeProvider<'_> {
 }
 
 pub async fn update_domains(
-    _client: &reqwest::Client,
+    client: &reqwest::Client,
     config: &HeConfig,
     wan: IpAddr,
 ) -> Result<Updates, DnessError> {
     // uses the same strategy as namecheap where we get the current records
     // via dns and check if they need to be updated
     let resolver = DnsResolver::create_cloudflare();
-    let he = HeProvider { config };
+    let he = HeProvider { config, client };
 
     let mut results = Updates::default();
 

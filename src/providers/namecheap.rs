@@ -12,7 +12,7 @@ pub struct NamecheapProvider<'a> {
 }
 
 impl NamecheapProvider<'_> {
-    /// https://www.namecheap.com/support/knowledgebase/article.aspx/29/11/how-do-i-use-a-browser-to-dynamically-update-the-hosts-ip
+    /// <https://www.namecheap.com/support/knowledgebase/article.aspx/29/11/how-do-i-use-a-browser-to-dynamically-update-the-hosts-ip>
     pub async fn update_domain(&self, host: &str, wan: Ipv4Addr) -> Result<(), DnessError> {
         let base = self.config.base_url.trim_end_matches('/').to_string();
         let get_url = format!("{}/update", base);

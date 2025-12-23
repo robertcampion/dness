@@ -9,7 +9,7 @@ pub struct NoIpProvider<'a> {
 }
 
 impl NoIpProvider<'_> {
-    /// https://www.noip.com/integrate/request
+    /// <https://www.noip.com/integrate/request>
     pub async fn update_domain(&self, wan: IpAddr) -> Result<(), DnessError> {
         let base = self.config.base_url.trim_end_matches('/').to_string();
         let get_url = format!("{}/nic/update", base);

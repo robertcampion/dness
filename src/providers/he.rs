@@ -11,7 +11,7 @@ pub struct HeProvider<'a> {
 }
 
 impl HeProvider<'_> {
-    /// https://dns.he.net/docs.html
+    /// <https://dns.he.net/docs.html>
     pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<(), DnessError> {
         let base = self.config.base_url.trim_end_matches('/').to_string();
         let url = format!("{}/nic/update", base);

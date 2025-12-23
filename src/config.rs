@@ -48,31 +48,17 @@ impl fmt::Display for ConfigError {
     }
 }
 
-#[derive(Deserialize, Clone, PartialEq, Debug)]
+#[derive(Deserialize, Clone, PartialEq, Debug, Default)]
 #[serde(deny_unknown_fields)]
 pub struct DnsConfig {
-    #[serde(default = "default_resolver")]
-    pub ip_resolver: String,
+    #[serde(default)]
+    pub ip_resolver: ResolverConfig,
 
     #[serde(default)]
     pub log: LogConfig,
 
     #[serde(default)]
     pub domains: Vec<DomainConfig>,
-}
-
-fn default_resolver() -> String {
-    String::from("opendns")
-}
-
-impl Default for DnsConfig {
-    fn default() -> Self {
-        DnsConfig {
-            ip_resolver: default_resolver(),
-            log: Default::default(),
-            domains: Default::default(),
-        }
-    }
 }
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
@@ -92,6 +78,14 @@ impl Default for LogConfig {
             level: default_log_level(),
         }
     }
+}
+
+#[derive(Deserialize, Clone, PartialEq, Debug, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ResolverConfig {
+    #[default]
+    OpenDns,
+    Ipify,
 }
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
@@ -311,16 +305,7 @@ mod tests {
     #[test]
     fn deserialize_config_empty() {
         let config: DnsConfig = toml::from_str("").unwrap();
-        assert_eq!(
-            config,
-            DnsConfig {
-                ip_resolver: String::from("opendns"),
-                log: LogConfig {
-                    level: LevelFilter::Info,
-                },
-                domains: vec![]
-            }
-        )
+        assert_eq!(config, DnsConfig::default())
     }
 
     #[test]
@@ -337,7 +322,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: String::from("opendns"),
+                ip_resolver: ResolverConfig::OpenDns,
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
@@ -360,7 +345,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: String::from("opendns"),
+                ip_resolver: ResolverConfig::OpenDns,
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
@@ -383,7 +368,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: String::from("opendns"),
+                ip_resolver: ResolverConfig::OpenDns,
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },
@@ -454,7 +439,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: String::from("opendns"),
+                ip_resolver: ResolverConfig::OpenDns,
                 log: LogConfig {
                     level: LevelFilter::Debug,
                 },
@@ -497,7 +482,7 @@ mod tests {
         assert_eq!(
             config,
             DnsConfig {
-                ip_resolver: String::from("ipify"),
+                ip_resolver: ResolverConfig::Ipify,
                 log: LogConfig {
                     level: LevelFilter::Info,
                 },

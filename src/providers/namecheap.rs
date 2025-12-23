@@ -15,7 +15,7 @@ impl NamecheapProvider<'_> {
     /// <https://www.namecheap.com/support/knowledgebase/article.aspx/29/11/how-do-i-use-a-browser-to-dynamically-update-the-hosts-ip>
     pub async fn update_domain(&self, host: &str, wan: Ipv4Addr) -> Result<(), DnessError> {
         let base = self.config.base_url.trim_end_matches('/').to_string();
-        let get_url = format!("{}/update", base);
+        let get_url = format!("{base}/update");
         let response = self
             .client
             .get(&get_url)
@@ -36,8 +36,7 @@ impl NamecheapProvider<'_> {
 
         if !response.contains("<ErrCount>0</ErrCount>") {
             Err(DnessError::message(format!(
-                "expected zero errors, but received: {}",
-                response
+                "expected zero errors, but received: {response}",
             )))
         } else {
             Ok(())

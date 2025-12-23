@@ -114,22 +114,22 @@ impl fmt::Display for ClError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "communicating with cloudflare: ")?;
         match self.kind {
-            ClErrorKind::SendHttp(action, ref _e) => write!(f, "http send error for {}", action),
+            ClErrorKind::SendHttp(action, ref _e) => write!(f, "http send error for {action}"),
             ClErrorKind::DecodeHttp(action, ref _e) => {
-                write!(f, "decoding response for {}", action)
+                write!(f, "decoding response for {action}")
             }
             ClErrorKind::ErrorResponse(action, ref errors) => {
-                write!(f, "cloudflare returned an error response for {}: ", action)?;
+                write!(f, "cloudflare returned an error response for {action}: ")?;
                 for error in errors {
                     write!(f, "{}: {}. ", error.code, error.message)?;
                 }
                 Ok(())
             }
             ClErrorKind::MissingResult(action) => {
-                write!(f, "no cloudflare result found for {}", action)
+                write!(f, "no cloudflare result found for {action}")
             }
             ClErrorKind::UnexpectedNumberOfZones(zones) => {
-                write!(f, "expected 1 zone to be returned, not {}", zones)
+                write!(f, "expected 1 zone to be returned, not {zones}")
             }
         }
     }

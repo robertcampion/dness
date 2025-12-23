@@ -101,19 +101,21 @@ pub enum DomainConfig {
     Porkbun(PorkbunConfig),
 }
 
-impl DomainConfig {
-    pub fn display_name(&self) -> String {
+impl fmt::Display for DomainConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DomainConfig::Cloudflare(c) => format!("{} ({})", c.zone, "cloudflare"),
-            DomainConfig::GoDaddy(c) => format!("{} ({})", c.domain, "godaddy"),
-            DomainConfig::Namecheap(c) => format!("{} ({})", c.domain, "namecheap"),
-            DomainConfig::He(c) => format!("{} ({})", c.hostname, "he"),
-            DomainConfig::NoIp(c) => format!("{} ({})", c.hostname, "noip"),
-            DomainConfig::Dynu(c) => format!("{} ({})", c.hostname, "dynu"),
-            DomainConfig::Porkbun(c) => format!("{} ({})", c.domain, "porkbun"),
+            DomainConfig::Cloudflare(c) => write!(f, "{} (cloudflare)", c.zone),
+            DomainConfig::GoDaddy(c) => write!(f, "{} (godaddy)", c.domain),
+            DomainConfig::Namecheap(c) => write!(f, "{} (namecheap)", c.domain),
+            DomainConfig::He(c) => write!(f, "{} (he)", c.hostname),
+            DomainConfig::NoIp(c) => write!(f, "{} (noip)", c.hostname),
+            DomainConfig::Dynu(c) => write!(f, "{} (dynu)", c.hostname),
+            DomainConfig::Porkbun(c) => write!(f, "{} (porkbun)", c.domain),
         }
     }
+}
 
+impl DomainConfig {
     pub fn get_ip_types(&self) -> Vec<IpType> {
         match self {
             DomainConfig::Cloudflare(c) => c.ip_types.clone(),

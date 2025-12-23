@@ -14,7 +14,7 @@ impl HeProvider<'_> {
     /// <https://dns.he.net/docs.html>
     pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<(), DnessError> {
         let base = self.config.base_url.trim_end_matches('/').to_string();
-        let url = format!("{}/nic/update", base);
+        let url = format!("{base}/nic/update");
         let params = [
             ("hostname", host),
             ("password", &self.config.password),
@@ -38,8 +38,7 @@ impl HeProvider<'_> {
 
         if !response.contains("good") && !response.contains("nochg") {
             Err(DnessError::message(format!(
-                "expected zero errors, but received: {}",
-                response
+                "expected zero errors, but received: {response}"
             )))
         } else {
             Ok(())

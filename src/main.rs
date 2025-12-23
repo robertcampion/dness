@@ -13,7 +13,6 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use crate::config::{parse_config, DnsConfig, IpType};
 use crate::core::Updates;
-use chrono::Duration;
 use clap::Parser;
 use log::{error, info, LevelFilter};
 use std::error;
@@ -32,12 +31,12 @@ struct Opt {
 
 fn log_err(context: &str, err: &dyn error::Error) {
     let mut msg = String::new();
-    let _ = writeln!(msg, "{} ", context);
-    let _ = write!(msg, "\tcaused by: {}", err);
+    let _ = writeln!(msg, "{context} ");
+    let _ = write!(msg, "\tcaused by: {err}");
 
     let mut ie = err.source();
     while let Some(cause) = ie {
-        let _ = write!(msg, "\n\tcaused by: {}", cause);
+        let _ = write!(msg, "\n\tcaused by: {cause}");
         ie = cause.source();
     }
 
@@ -71,12 +70,6 @@ fn init_configuration<T: AsRef<Path>>(file: Option<T>) -> DnsConfig {
     } else {
         Default::default()
     }
-}
-
-fn elapsed(start: Instant) -> String {
-    Duration::from_std(Instant::now().duration_since(start))
-        .map(|x| format!("{}ms", x.num_milliseconds()))
-        .unwrap_or_else(|_| String::from("<error>"))
 }
 
 #[tokio::main]
@@ -113,7 +106,10 @@ async fn main() {
             let start_resolve = Instant::now();
             match resolvers::resolve_ip(&http_client, &config, *ip_type).await {
                 Ok(addr) => {
-                    info!("resolved address to {} in {}", addr, elapsed(start_resolve));
+                    info!(
+                        "resolved address to {addr} in {}ms",
+                        start_resolve.elapsed().as_millis()
+                    );
                     Some(addr)
                 }
                 Err(e) => {
@@ -140,23 +136,24 @@ async fn main() {
             match providers::update_provider(&http_client, *addr, &d).await {
                 Ok(updates) => {
                     info!(
-                        "processed {}: ({}) in {}",
-                        d.display_name(),
-                        updates,
-                        elapsed(start_update)
+                        "processed {d}: ({updates}) in {}ms",
+                        start_update.elapsed().as_millis()
                     );
                     total_updates += updates;
                 }
                 Err(e) => {
                     failure = true;
-                    let msg = format!("could not update {}", d.display_name(),);
+                    let msg = format!("could not update {d}");
                     log_err(&msg, e.as_ref());
                 }
             }
         }
     }
 
-    info!("processed all: ({}) in {}", total_updates, elapsed(start));
+    info!(
+        "processed all: ({total_updates}) in {}ms",
+        start.elapsed().as_millis()
+    );
     if failure {
         error!("at least one update failed, so exiting with non-zero status code");
         std::process::exit(1)

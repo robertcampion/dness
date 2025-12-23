@@ -93,21 +93,18 @@ impl fmt::Display for DnessError {
         match &self.kind {
             DnessErrorKind::SendHttp { url, context, .. } => write!(
                 f,
-                "unable to send http request for {}: url attempted: {}",
-                context, url
+                "unable to send http request for {context}: url attempted: {url}"
             ),
             DnessErrorKind::BadResponse { url, context, .. } => write!(
                 f,
-                "received bad http response for {}: url attempted: {}",
-                context, url
+                "received bad http response for {context}: url attempted: {url}"
             ),
             DnessErrorKind::Deserialize { url, context, .. } => write!(
                 f,
-                "unable to deserialize response for {}: url attempted: {}",
-                context, url
+                "unable to deserialize response for {context}: url attempted: {url}"
             ),
             DnessErrorKind::Dns { .. } => write!(f, "dns lookup"),
-            DnessErrorKind::Message(msg) => write!(f, "{}", msg),
+            DnessErrorKind::Message(msg) => write!(f, "{msg}"),
         }
     }
 }
@@ -137,7 +134,7 @@ impl fmt::Display for DnsError {
         match &*self.kind {
             DnsErrorKind::DnsResolve(_) => write!(f, "could not resolve via dns"),
             DnsErrorKind::UnexpectedResponse(results) => {
-                write!(f, "unexpected number of results: {}", results)
+                write!(f, "unexpected number of results: {results}")
             }
         }
     }

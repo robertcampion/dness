@@ -14,17 +14,17 @@ pub struct DynuProvider<'a> {
 impl DynuProvider<'_> {
     pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<(), DnessError> {
         let base = self.config.base_url.trim_end_matches('/').to_string();
-        let get_url = format!("{}/nic/update", base);
+        let get_url = format!("{base}/nic/update");
         let mut params = vec![("hostname", self.config.hostname.clone())];
 
         match wan {
             IpAddr::V4(ipv4_addr) => {
                 params.push(("myip", ipv4_addr.to_string()));
-                params.push(("myipv6", "no".to_owned()))
+                params.push(("myipv6", String::from("no")));
             }
             IpAddr::V6(ipv6_addr) => {
-                params.push(("myip", "no".to_owned()));
-                params.push(("myipv6", ipv6_addr.to_string()))
+                params.push(("myip", String::from("no")));
+                params.push(("myipv6", ipv6_addr.to_string()));
             }
         }
 
@@ -51,8 +51,7 @@ impl DynuProvider<'_> {
 
         if !response.contains("nochg") && !response.contains("good") {
             Err(DnessError::message(format!(
-                "expected zero errors, but received: {}",
-                response
+                "expected zero errors, but received: {response}"
             )))
         } else {
             Ok(())

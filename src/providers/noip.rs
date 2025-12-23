@@ -12,7 +12,7 @@ impl NoIpProvider<'_> {
     /// <https://www.noip.com/integrate/request>
     pub async fn update_domain(&self, wan: IpAddr) -> Result<(), DnessError> {
         let base = self.config.base_url.trim_end_matches('/').to_string();
-        let get_url = format!("{}/nic/update", base);
+        let get_url = format!("{base}/nic/update");
         let response = self
             .client
             .get(&get_url)
@@ -32,8 +32,7 @@ impl NoIpProvider<'_> {
 
         if !response.contains("good") {
             Err(DnessError::message(format!(
-                "expected zero errors, but received: {}",
-                response
+                "expected zero errors, but received: {response}"
             )))
         } else {
             Ok(())

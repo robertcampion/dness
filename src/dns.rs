@@ -3,7 +3,7 @@ use crate::errors::{DnsError, DnsErrorKind};
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig};
 use hickory_resolver::name_server::TokioConnectionProvider;
 use hickory_resolver::TokioResolver;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 
 #[derive(Debug)]
 pub struct DnsResolver {
@@ -11,26 +11,12 @@ pub struct DnsResolver {
 }
 
 impl DnsResolver {
-    pub fn create_opendns(ip_type: IpType) -> Self {
-        let ips = // OpenDNS nameservers:
-                // https://en.wikipedia.org/wiki/OpenDNS#Name_server_IP_addresses
-                match ip_type {
-                    IpType::V4 => [
-                        IpAddr::V4(Ipv4Addr::new(208, 67, 222, 222)),
-                        IpAddr::V4(Ipv4Addr::new(208, 67, 220, 220)),
-                    ],
-                    IpType::V6 => [
-                        IpAddr::V6(Ipv6Addr::new(0x2620, 0x119, 0x35, 0, 0, 0, 0, 0x35)),
-                        IpAddr::V6(Ipv6Addr::new(0x2620, 0x119, 0x53, 0, 0, 0, 0, 0x53)),
-                    ],
-                };
-
+    pub fn from_ips_clear(ips: &[IpAddr]) -> Self {
         let config = ResolverConfig::from_parts(
             None,
             vec![],
-            NameServerConfigGroup::from_ips_clear(&ips, 53, false),
+            NameServerConfigGroup::from_ips_clear(ips, 53, false),
         );
-
         Self::from_config(config)
     }
 

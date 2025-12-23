@@ -1,30 +1,21 @@
-use std::net::IpAddr;
-
 use crate::config::IpType;
 use crate::dns::DnsResolver;
 use crate::errors::DnsError;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 pub async fn wan_lookup_ip(ip_type: IpType) -> Result<IpAddr, DnsError> {
-    let opendns = OpenDnsResolver::create(ip_type);
-    opendns.wan_lookup().await
-}
-
-#[derive(Debug)]
-struct OpenDnsResolver {
-    resolver: DnsResolver,
-    ip_type: IpType,
-}
-
-impl OpenDnsResolver {
-    fn create(ip_type: IpType) -> Self {
-        let resolver = DnsResolver::create_opendns(ip_type);
-        OpenDnsResolver { resolver, ip_type }
-    }
-
-    async fn wan_lookup(&self) -> Result<IpAddr, DnsError> {
-        const DOMAIN: &str = "myip.opendns.com.";
-        self.resolver.ip_lookup(DOMAIN, self.ip_type).await
-    }
+    let ips = match ip_type {
+        IpType::V4 => [
+            IpAddr::V4(Ipv4Addr::new(208, 67, 222, 222)),
+            IpAddr::V4(Ipv4Addr::new(208, 67, 220, 220)),
+        ],
+        IpType::V6 => [
+            IpAddr::V6(Ipv6Addr::new(0x2620, 0x119, 0x35, 0, 0, 0, 0, 0x35)),
+            IpAddr::V6(Ipv6Addr::new(0x2620, 0x119, 0x53, 0, 0, 0, 0, 0x53)),
+        ],
+    };
+    let resolver = DnsResolver::from_ips_clear(&ips);
+    resolver.ip_lookup("myip.opendns.com.", ip_type).await
 }
 
 #[cfg(test)]

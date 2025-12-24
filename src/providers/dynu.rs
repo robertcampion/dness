@@ -5,47 +5,39 @@ use std::net::IpAddr;
 
 #[derive(Debug)]
 pub struct DynuProvider<'a> {
-    client: &'a reqwest::Client,
+    get_url: String,
     config: &'a DynuConfig,
+    client: &'a reqwest::Client,
 }
 
 impl DynuProvider<'_> {
     pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<(), DnessError> {
-        let base = self.config.base_url.trim_end_matches('/');
-        let get_url = format!("{base}/nic/update");
-        let mut params = vec![("hostname", self.config.hostname.clone())];
-
-        match wan {
-            IpAddr::V4(ipv4_addr) => {
-                params.push(("myip", ipv4_addr.to_string()));
-                params.push(("myipv6", String::from("no")));
-            }
-            IpAddr::V6(ipv6_addr) => {
-                params.push(("myip", String::from("no")));
-                params.push(("myipv6", ipv6_addr.to_string()));
-            }
-        }
-
-        if host != "@" {
-            params.push(("alias", String::from(host)));
-        }
-
-        let response = self
+        let request = self
             .client
-            .get(&get_url)
-            .query(&params)
-            .basic_auth(
-                self.config.username.clone(),
-                Some(self.config.password.clone()),
-            )
+            .get(&self.get_url)
+            .basic_auth(&self.config.username, Some(&self.config.password))
+            .query(&[("hostname", &self.config.hostname)]);
+
+        let request = match wan {
+            IpAddr::V4(ipv4_addr) => request.query(&(("myip", ipv4_addr), ("myipv6", "no"))),
+            IpAddr::V6(ipv6_addr) => request.query(&(("myip", "no"), ("myipv6", ipv6_addr))),
+        };
+
+        let request = if host != "@" {
+            request.query(&[("alias", String::from(host))])
+        } else {
+            request
+        };
+
+        let response = request
             .send()
             .await
-            .map_err(|e| DnessError::send_http(&get_url, "dynu update", e))?
+            .map_err(|e| DnessError::send_http(&self.get_url, "dynu update", e))?
             .error_for_status()
-            .map_err(|e| DnessError::bad_response(&get_url, "dynu update", e))?
+            .map_err(|e| DnessError::bad_response(&self.get_url, "dynu update", e))?
             .text()
             .await
-            .map_err(|e| DnessError::deserialize(&get_url, "dynu update", e))?;
+            .map_err(|e| DnessError::deserialize(&self.get_url, "dynu update", e))?;
 
         if !response.contains("nochg") && !response.contains("good") {
             Err(DnessError::message(format!(
@@ -61,7 +53,11 @@ impl<'a> DnsLookupConfig<'a> for DynuConfig {
     type Provider = DynuProvider<'a>;
 
     fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
+        let base_url = self.base_url.trim_end_matches('/');
+        let get_url = format!("{base_url}/nic/update");
+
         DynuProvider {
+            get_url,
             config: self,
             client,
         }

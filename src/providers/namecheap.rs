@@ -5,6 +5,7 @@ use std::net::{IpAddr, Ipv4Addr};
 
 #[derive(Debug)]
 pub struct NamecheapProvider<'a> {
+    get_url: String,
     client: &'a reqwest::Client,
     config: &'a NamecheapConfig,
 }
@@ -12,25 +13,22 @@ pub struct NamecheapProvider<'a> {
 impl NamecheapProvider<'_> {
     /// <https://www.namecheap.com/support/knowledgebase/article.aspx/29/11/how-do-i-use-a-browser-to-dynamically-update-the-hosts-ip>
     pub async fn update_domain(&self, host: &str, wan: Ipv4Addr) -> Result<(), DnessError> {
-        let base = self.config.base_url.trim_end_matches('/').to_string();
-        let get_url = format!("{base}/update");
-        let response = self
-            .client
-            .get(&get_url)
-            .query(&[
-                ("host", host),
-                ("domain", &self.config.domain),
-                ("password", &self.config.ddns_password),
-                ("ip", &wan.to_string()),
-            ])
+        let request = self.client.get(&self.get_url).query(&(
+            ("host", host),
+            ("domain", &self.config.domain),
+            ("password", &self.config.ddns_password),
+            ("ip", &wan),
+        ));
+
+        let response = request
             .send()
             .await
-            .map_err(|e| DnessError::send_http(&get_url, "namecheap update", e))?
+            .map_err(|e| DnessError::send_http(&self.get_url, "namecheap update", e))?
             .error_for_status()
-            .map_err(|e| DnessError::bad_response(&get_url, "namecheap update", e))?
+            .map_err(|e| DnessError::bad_response(&self.get_url, "namecheap update", e))?
             .text()
             .await
-            .map_err(|e| DnessError::deserialize(&get_url, "namecheap update", e))?;
+            .map_err(|e| DnessError::deserialize(&self.get_url, "namecheap update", e))?;
 
         if !response.contains("<ErrCount>0</ErrCount>") {
             Err(DnessError::message(format!(
@@ -46,7 +44,11 @@ impl<'a> DnsLookupConfig<'a> for NamecheapConfig {
     type Provider = NamecheapProvider<'a>;
 
     fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
+        let base_url = self.base_url.trim_end_matches('/').to_string();
+        let get_url = format!("{base_url}/update");
+
         NamecheapProvider {
+            get_url,
             config: self,
             client,
         }

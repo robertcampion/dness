@@ -11,9 +11,15 @@ pub struct HeProvider<'a> {
     client: &'a reqwest::Client,
 }
 
-impl HeProvider<'_> {
+impl DnsLookupProvider for HeProvider<'_> {
     /// <https://dns.he.net/docs.html>
-    pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<()> {
+    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
+        let host = if record == "@" {
+            &self.config.hostname
+        } else {
+            &format!("{}.{}", record, self.config.hostname)
+        };
+
         let request = self
             .client
             .post(&self.get_url)
@@ -23,7 +29,7 @@ impl HeProvider<'_> {
             // expect this behavior and not attempt to re-use the connection.
             .version(reqwest::Version::HTTP_10)
             .form(&(
-                ("hostname", host),
+                ("hostname", &host),
                 ("password", &self.config.password),
                 ("myip", &wan),
             ));
@@ -66,18 +72,6 @@ impl<'a> DnsLookupConfig<'a> for HeConfig {
 
     fn hostname(&self) -> &str {
         &self.hostname
-    }
-}
-
-impl DnsLookupProvider for HeProvider<'_> {
-    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
-        let host_record = if record == "@" {
-            self.config.hostname.clone()
-        } else {
-            format!("{}.{}", record, self.config.hostname)
-        };
-
-        self.update_domain(&host_record, wan).await
     }
 }
 

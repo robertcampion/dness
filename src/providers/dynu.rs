@@ -11,8 +11,8 @@ pub struct DynuProvider<'a> {
     client: &'a reqwest::Client,
 }
 
-impl DynuProvider<'_> {
-    pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<()> {
+impl DnsLookupProvider for DynuProvider<'_> {
+    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
         let request = self
             .client
             .get(&self.get_url)
@@ -24,8 +24,8 @@ impl DynuProvider<'_> {
             IpAddr::V6(ipv6_addr) => request.query(&(("myip", "no"), ("myipv6", ipv6_addr))),
         };
 
-        let request = if host != "@" {
-            request.query(&[("alias", String::from(host))])
+        let request = if record != "@" {
+            request.query(&[("alias", String::from(record))])
         } else {
             request
         };
@@ -68,12 +68,6 @@ impl<'a> DnsLookupConfig<'a> for DynuConfig {
 
     fn hostname(&self) -> &str {
         &self.hostname
-    }
-}
-
-impl DnsLookupProvider for DynuProvider<'_> {
-    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
-        self.update_domain(record, wan).await
     }
 }
 

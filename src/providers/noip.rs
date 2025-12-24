@@ -1,9 +1,7 @@
 use crate::config::NoIpConfig;
-use crate::core::Updates;
-use crate::dns::DnsResolver;
 use crate::errors::HttpError;
+use crate::providers::{DnsLookupConfig, DnsLookupProvider};
 use anyhow::{anyhow, Context as _, Result};
-use log::{info, warn};
 use std::net::IpAddr;
 
 #[derive(Debug)]
@@ -42,42 +40,29 @@ impl NoIpProvider<'_> {
     }
 }
 
-pub async fn update_domains(
-    client: &reqwest::Client,
-    config: &NoIpConfig,
-    wan: IpAddr,
-) -> Result<Updates> {
-    let resolver = DnsResolver::create_cloudflare();
-    let dns_query = format!("{}.", &config.hostname);
-    let response = resolver.ip_lookup(&dns_query, wan.into()).await;
-    let provider = NoIpProvider { client, config };
-    match response {
-        Ok(ip) => {
-            if ip == wan {
-                Ok(Updates {
-                    current: 1,
-                    ..Updates::default()
-                })
-            } else {
-                provider.update_domain(wan).await?;
-                info!("{} updated from {} to {}", config.hostname, ip, wan);
-                Ok(Updates {
-                    updated: 1,
-                    ..Updates::default()
-                })
-            }
+impl<'a> DnsLookupConfig<'a> for NoIpConfig {
+    type Provider = NoIpProvider<'a>;
+
+    fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
+        NoIpProvider {
+            config: self,
+            client,
         }
-        Err(e) => {
-            // Could be a network issue or it could be that the record didn't exist.
-            warn!(
-                "resolving noip ({}) encountered an error: {}",
-                config.hostname, e
-            );
-            Ok(Updates {
-                missing: 1,
-                ..Updates::default()
-            })
-        }
+    }
+
+    fn records(&self) -> impl Iterator<Item = impl AsRef<str>> {
+        std::iter::once("@")
+    }
+
+    fn hostname(&self) -> &str {
+        &self.hostname
+    }
+}
+
+impl DnsLookupProvider for NoIpProvider<'_> {
+    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
+        let _ = record; // we only have one record to update
+        self.update_domain(wan).await
     }
 }
 
@@ -85,6 +70,7 @@ pub async fn update_domains(
 mod tests {
     use super::*;
     use crate::config::IpType;
+    use crate::core::Updates;
     use std::net::Ipv4Addr;
 
     macro_rules! noip_server {
@@ -122,7 +108,7 @@ mod tests {
             ip_types: vec![IpType::V4],
         };
 
-        let summary = update_domains(&http_client, &config, new_ip).await.unwrap();
+        let summary = config.update_domains(&http_client, new_ip).await.unwrap();
         tx.send(()).unwrap();
 
         assert_eq!(

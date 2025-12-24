@@ -1,9 +1,7 @@
 use crate::config::HeConfig;
-use crate::core::Updates;
-use crate::dns::DnsResolver;
 use crate::errors::HttpError;
+use crate::providers::{DnsLookupConfig, DnsLookupProvider};
 use anyhow::{anyhow, Context as _, Result};
-use log::{info, warn};
 use std::net::IpAddr;
 
 #[derive(Debug)]
@@ -49,59 +47,42 @@ impl HeProvider<'_> {
     }
 }
 
-pub async fn update_domains(
-    client: &reqwest::Client,
-    config: &HeConfig,
-    wan: IpAddr,
-) -> Result<Updates> {
-    // uses the same strategy as namecheap where we get the current records
-    // via dns and check if they need to be updated
-    let resolver = DnsResolver::create_cloudflare();
-    let he = HeProvider { config, client };
+impl<'a> DnsLookupConfig<'a> for HeConfig {
+    type Provider = HeProvider<'a>;
 
-    let mut results = Updates::default();
-
-    for record in &config.records {
-        let host_record = if record == "@" {
-            config.hostname.clone()
-        } else {
-            format!("{}.{}", record, &config.hostname)
-        };
-
-        let dns_query = format!("{}.", &host_record);
-        let response = resolver.ip_lookup(&dns_query, wan.into()).await;
-
-        match response {
-            Ok(ip) => {
-                if ip == wan {
-                    results.current += 1;
-                } else {
-                    he.update_domain(&host_record, wan).await?;
-                    info!(
-                        "{} from domain {} updated from {} to {}",
-                        record, config.hostname, ip, wan
-                    );
-                    results.updated += 1;
-                }
-            }
-            Err(e) => {
-                // Could be a network issue or it could be that the record didn't exist.
-                warn!(
-                    "resolving he record ({}) encountered an error: {}",
-                    record, e
-                );
-                results.missing += 1;
-            }
+    fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
+        HeProvider {
+            config: self,
+            client,
         }
     }
 
-    Ok(results)
+    fn records(&self) -> impl Iterator<Item = impl AsRef<str>> {
+        self.records.iter()
+    }
+
+    fn hostname(&self) -> &str {
+        &self.hostname
+    }
+}
+
+impl DnsLookupProvider for HeProvider<'_> {
+    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
+        let host_record = if record == "@" {
+            self.config.hostname.clone()
+        } else {
+            format!("{}.{}", record, self.config.hostname)
+        };
+
+        self.update_domain(&host_record, wan).await
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::IpType;
+    use crate::core::Updates;
     use std::net::Ipv4Addr;
 
     macro_rules! he_server {
@@ -139,7 +120,7 @@ mod tests {
             ip_types: vec![IpType::V4],
         };
 
-        let summary = update_domains(&http_client, &config, new_ip).await.unwrap();
+        let summary = config.update_domains(&http_client, new_ip).await.unwrap();
         tx.send(()).unwrap();
 
         assert_eq!(

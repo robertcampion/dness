@@ -1,9 +1,7 @@
-use crate::config::{IpType, NamecheapConfig};
-use crate::core::Updates;
-use crate::dns::DnsResolver;
+use crate::config::NamecheapConfig;
 use crate::errors::HttpError;
+use crate::providers::{DnsLookupConfig, DnsLookupProvider};
 use anyhow::{anyhow, Context as _, Result};
-use log::{info, warn};
 use std::net::{IpAddr, Ipv4Addr};
 
 #[derive(Debug)]
@@ -43,67 +41,38 @@ impl NamecheapProvider<'_> {
     }
 }
 
-pub async fn update_domains(
-    client: &reqwest::Client,
-    config: &NamecheapConfig,
-    wan: IpAddr,
-) -> Result<Updates> {
-    // Use cloudflare's DNS to query all the configured records. Ideally we'd use dns
-    // over tls for privacy purposes but that feature is experimental and we don't want to rely on
-    // experimental features here: https://github.com/bluejekyll/trust-dns/issues/989
-    //
-    // We check all the records with DNS before issuing any requests to update them in namecheap so
-    // that we can be a good netizen. One issue seen with this approach is that in subsequent
-    // invocations (cron, timers, etc) -- the dns record won't have propagated yet. I haven't seen
-    // any issues with setting the namecheap record to an unchanged value, but it is less than
-    // ideal. Namecheap does have a dns api that may be worth exploring.
-    let IpAddr::V4(wan) = wan else {
-        return Err(anyhow!("IPv6 not supported for Namecheap"));
-    };
-    let resolver = DnsResolver::create_cloudflare();
-    let namecheap = NamecheapProvider { client, config };
+impl<'a> DnsLookupConfig<'a> for NamecheapConfig {
+    type Provider = NamecheapProvider<'a>;
 
-    let mut results = Updates::default();
-
-    for record in &config.records {
-        let dns_query = if record == "@" {
-            format!("{}.", config.domain)
-        } else {
-            format!("{}.{}.", record, config.domain)
-        };
-
-        let response = resolver.ip_lookup(&dns_query, IpType::V4).await;
-
-        match response {
-            Ok(ip) => {
-                if ip == wan {
-                    results.current += 1;
-                } else {
-                    namecheap.update_domain(record, wan).await?;
-                    info!(
-                        "{} from domain {} updated from {} to {}",
-                        record, config.domain, ip, wan
-                    );
-                    results.updated += 1;
-                }
-            }
-            Err(e) => {
-                // Could be a network issue or it could be that the record didn't exist.
-                warn!(
-                    "resolving namecheap record ({}) encountered an error: {}",
-                    record, e
-                );
-                results.missing += 1;
-            }
+    fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
+        NamecheapProvider {
+            config: self,
+            client,
         }
     }
 
-    Ok(results)
+    fn records(&self) -> impl Iterator<Item = impl AsRef<str>> {
+        self.records.iter()
+    }
+
+    fn hostname(&self) -> &str {
+        &self.domain
+    }
+}
+
+impl DnsLookupProvider for NamecheapProvider<'_> {
+    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
+        let IpAddr::V4(wan) = wan else {
+            return Err(anyhow!("IPv6 not supported for Namecheap"));
+        };
+        self.update_domain(record, wan).await
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::Updates;
 
     macro_rules! namecheap_server {
         () => {{
@@ -142,7 +111,7 @@ mod tests {
             records: vec![String::from("d")],
         };
 
-        let summary = update_domains(&http_client, &config, new_ip).await.unwrap();
+        let summary = config.update_domains(&http_client, new_ip).await.unwrap();
         tx.send(()).unwrap();
 
         assert_eq!(

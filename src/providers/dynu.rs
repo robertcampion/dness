@@ -1,9 +1,7 @@
 use crate::config::DynuConfig;
-use crate::core::Updates;
-use crate::dns::DnsResolver;
 use crate::errors::HttpError;
+use crate::providers::{DnsLookupConfig, DnsLookupProvider};
 use anyhow::{anyhow, Context as _, Result};
-use log::{info, warn};
 use std::net::IpAddr;
 
 #[derive(Debug)]
@@ -58,56 +56,36 @@ impl DynuProvider<'_> {
     }
 }
 
-pub async fn update_domains(
-    client: &reqwest::Client,
-    config: &DynuConfig,
-    wan: IpAddr,
-) -> Result<Updates> {
-    let resolver = DnsResolver::create_cloudflare();
-    let dynu_provider = DynuProvider { client, config };
+impl<'a> DnsLookupConfig<'a> for DynuConfig {
+    type Provider = DynuProvider<'a>;
 
-    let mut results = Updates::default();
-
-    for record in &config.records {
-        let dns_query = if record == "@" {
-            format!("{}.", config.hostname)
-        } else {
-            format!("{}.{}.", record, config.hostname)
-        };
-
-        let response = resolver.ip_lookup(&dns_query, wan.into()).await;
-
-        match response {
-            Ok(ip) => {
-                if ip == wan {
-                    results.current += 1;
-                } else {
-                    dynu_provider.update_domain(record, wan).await?;
-                    info!(
-                        "{} from domain {} updated from {} to {}",
-                        record, config.hostname, ip, wan
-                    );
-                    results.updated += 1;
-                }
-            }
-            Err(e) => {
-                // Could be a network issue or it could be that the record didn't exist.
-                warn!(
-                    "resolving dynu record ({}) encountered an error: {}",
-                    record, e
-                );
-                results.missing += 1;
-            }
+    fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
+        DynuProvider {
+            config: self,
+            client,
         }
     }
 
-    Ok(results)
+    fn records(&self) -> impl Iterator<Item = impl AsRef<str>> {
+        self.records.iter()
+    }
+
+    fn hostname(&self) -> &str {
+        &self.hostname
+    }
+}
+
+impl DnsLookupProvider for DynuProvider<'_> {
+    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
+        self.update_domain(record, wan).await
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::IpType;
+    use crate::core::Updates;
     use std::net::Ipv4Addr;
 
     macro_rules! dynu_server {
@@ -146,7 +124,7 @@ mod tests {
             ip_types: vec![IpType::V4],
         };
 
-        let summary = update_domains(&http_client, &config, new_ip).await.unwrap();
+        let summary = config.update_domains(&http_client, new_ip).await.unwrap();
         tx.send(()).unwrap();
 
         assert_eq!(

@@ -6,6 +6,7 @@ use std::net::{IpAddr, Ipv4Addr};
 
 #[derive(Debug)]
 pub struct NamecheapProvider<'a> {
+    get_url: String,
     client: &'a reqwest::Client,
     config: &'a NamecheapConfig,
 }
@@ -13,25 +14,22 @@ pub struct NamecheapProvider<'a> {
 impl NamecheapProvider<'_> {
     /// <https://www.namecheap.com/support/knowledgebase/article.aspx/29/11/how-do-i-use-a-browser-to-dynamically-update-the-hosts-ip>
     pub async fn update_domain(&self, host: &str, wan: Ipv4Addr) -> Result<()> {
-        let base = self.config.base_url.trim_end_matches('/').to_string();
-        let get_url = format!("{base}/update");
-        let response = self
-            .client
-            .get(&get_url)
-            .query(&[
-                ("host", host),
-                ("domain", &self.config.domain),
-                ("password", &self.config.ddns_password),
-                ("ip", &wan.to_string()),
-            ])
+        let request = self.client.get(&self.get_url).query(&(
+            ("host", host),
+            ("domain", &self.config.domain),
+            ("password", &self.config.ddns_password),
+            ("ip", &wan),
+        ));
+
+        let response = request
             .send()
             .await
-            .context(HttpError::send(&get_url, "namecheap update"))?
+            .context(HttpError::send(&self.get_url, "namecheap update"))?
             .error_for_status()
-            .context(HttpError::bad_response(&get_url, "namecheap update"))?
+            .context(HttpError::bad_response(&self.get_url, "namecheap update"))?
             .text()
             .await
-            .context(HttpError::deserialize(&get_url, "namecheap update"))?;
+            .context(HttpError::deserialize(&self.get_url, "namecheap update"))?;
 
         if !response.contains("<ErrCount>0</ErrCount>") {
             Err(anyhow!("expected zero errors, but received: {response}"))
@@ -45,7 +43,11 @@ impl<'a> DnsLookupConfig<'a> for NamecheapConfig {
     type Provider = NamecheapProvider<'a>;
 
     fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
+        let base_url = self.base_url.trim_end_matches('/').to_string();
+        let get_url = format!("{base_url}/update");
+
         NamecheapProvider {
+            get_url,
             config: self,
             client,
         }

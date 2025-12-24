@@ -6,6 +6,7 @@ use std::net::IpAddr;
 
 #[derive(Debug)]
 pub struct HeProvider<'a> {
+    get_url: String,
     config: &'a HeConfig,
     client: &'a reqwest::Client,
 }
@@ -13,31 +14,29 @@ pub struct HeProvider<'a> {
 impl HeProvider<'_> {
     /// <https://dns.he.net/docs.html>
     pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<()> {
-        let base = self.config.base_url.trim_end_matches('/');
-        let url = format!("{base}/nic/update");
-        let params = [
-            ("hostname", host),
-            ("password", &self.config.password),
-            ("myip", &wan.to_string()),
-        ];
-
-        let response = self
+        let request = self
             .client
-            .post(&url)
+            .post(&self.get_url)
             // he.net closes the connection without sending a Connection: close
             // header. So we need to intentionally downgrade from HTTP/1.1,
             // where keep-alive is the default, to HTTP/1.0 so that reqwest will
             // expect this behavior and not attempt to re-use the connection.
             .version(reqwest::Version::HTTP_10)
-            .form(&params)
+            .form(&(
+                ("hostname", host),
+                ("password", &self.config.password),
+                ("myip", &wan),
+            ));
+
+        let response = request
             .send()
             .await
-            .context(HttpError::send(&url, "he update"))?
+            .context(HttpError::send(&self.get_url, "he update"))?
             .error_for_status()
-            .context(HttpError::bad_response(&url, "he update"))?
+            .context(HttpError::bad_response(&self.get_url, "he update"))?
             .text()
             .await
-            .context(HttpError::deserialize(&url, "he update"))?;
+            .context(HttpError::deserialize(&self.get_url, "he update"))?;
 
         if !response.contains("good") && !response.contains("nochg") {
             Err(anyhow!("expected zero errors, but received: {response}"))
@@ -51,7 +50,11 @@ impl<'a> DnsLookupConfig<'a> for HeConfig {
     type Provider = HeProvider<'a>;
 
     fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
+        let base_url = self.base_url.trim_end_matches('/');
+        let get_url = format!("{base_url}/nic/update");
+
         HeProvider {
+            get_url,
             config: self,
             client,
         }

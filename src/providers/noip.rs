@@ -6,6 +6,7 @@ use std::net::IpAddr;
 
 #[derive(Debug)]
 pub struct NoIpProvider<'a> {
+    get_url: String,
     client: &'a reqwest::Client,
     config: &'a NoIpConfig,
 }
@@ -13,24 +14,21 @@ pub struct NoIpProvider<'a> {
 impl NoIpProvider<'_> {
     /// <https://www.noip.com/integrate/request>
     pub async fn update_domain(&self, wan: IpAddr) -> Result<()> {
-        let base = self.config.base_url.trim_end_matches('/');
-        let get_url = format!("{base}/nic/update");
-        let response = self
+        let request = self
             .client
-            .get(&get_url)
-            .query(&[
-                ("hostname", &self.config.hostname),
-                ("myip", &wan.to_string()),
-            ])
+            .get(&self.get_url)
             .basic_auth(&self.config.username, Some(&self.config.password))
+            .query(&(("hostname", &self.config.hostname), ("myip", &wan)));
+
+        let response = request
             .send()
             .await
-            .context(HttpError::send(&get_url, "noip update"))?
+            .context(HttpError::send(&self.get_url, "noip update"))?
             .error_for_status()
-            .context(HttpError::bad_response(&get_url, "noip update"))?
+            .context(HttpError::bad_response(&self.get_url, "noip update"))?
             .text()
             .await
-            .context(HttpError::deserialize(&get_url, "noip update"))?;
+            .context(HttpError::deserialize(&self.get_url, "noip update"))?;
 
         if !response.contains("good") {
             Err(anyhow!("expected zero errors, but received: {response}"))
@@ -44,7 +42,11 @@ impl<'a> DnsLookupConfig<'a> for NoIpConfig {
     type Provider = NoIpProvider<'a>;
 
     fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
+        let base_url = self.base_url.trim_end_matches('/');
+        let get_url = format!("{base_url}/nic/update");
+
         NoIpProvider {
+            get_url,
             config: self,
             client,
         }

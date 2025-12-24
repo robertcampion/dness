@@ -10,9 +10,9 @@ pub struct NoIpProvider<'a> {
     config: &'a NoIpConfig,
 }
 
-impl NoIpProvider<'_> {
-    /// <https://www.noip.com/integrate/request>
-    pub async fn update_domain(&self, wan: IpAddr) -> Result<(), DnessError> {
+impl DnsLookupProvider for NoIpProvider<'_> {
+    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<(), DnessError> {
+        let _ = record; // we only have one record to update
         let request = self
             .client
             .get(&self.get_url)
@@ -59,13 +59,6 @@ impl<'a> DnsLookupConfig<'a> for NoIpConfig {
 
     fn hostname(&self) -> &str {
         &self.hostname
-    }
-}
-
-impl DnsLookupProvider for NoIpProvider<'_> {
-    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<(), DnessError> {
-        let _ = record; // we only have one record to update
-        self.update_domain(wan).await
     }
 }
 

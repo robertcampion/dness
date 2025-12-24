@@ -1,7 +1,7 @@
 use crate::config::NamecheapConfig;
 use crate::errors::DnessError;
 use crate::providers::{DnsLookupConfig, DnsLookupProvider};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 
 #[derive(Debug)]
 pub struct NamecheapProvider<'a> {
@@ -10,11 +10,16 @@ pub struct NamecheapProvider<'a> {
     config: &'a NamecheapConfig,
 }
 
-impl NamecheapProvider<'_> {
-    /// <https://www.namecheap.com/support/knowledgebase/article.aspx/29/11/how-do-i-use-a-browser-to-dynamically-update-the-hosts-ip>
-    pub async fn update_domain(&self, host: &str, wan: Ipv4Addr) -> Result<(), DnessError> {
+impl DnsLookupProvider for NamecheapProvider<'_> {
+    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<(), DnessError> {
+        let IpAddr::V4(wan) = wan else {
+            return Err(DnessError::message(String::from(
+                "IPv6 not supported for Namecheap",
+            )));
+        };
+
         let request = self.client.get(&self.get_url).query(&(
-            ("host", host),
+            ("host", record),
             ("domain", &self.config.domain),
             ("password", &self.config.ddns_password),
             ("ip", &wan),
@@ -63,21 +68,11 @@ impl<'a> DnsLookupConfig<'a> for NamecheapConfig {
     }
 }
 
-impl DnsLookupProvider for NamecheapProvider<'_> {
-    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<(), DnessError> {
-        let IpAddr::V4(wan) = wan else {
-            return Err(DnessError::message(String::from(
-                "IPv6 not supported for Namecheap",
-            )));
-        };
-        self.update_domain(record, wan).await
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::core::Updates;
+    use std::net::Ipv4Addr;
 
     macro_rules! namecheap_server {
         () => {{

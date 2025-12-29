@@ -13,9 +13,9 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use crate::config::{parse_config, DnsConfig, IpType};
 use crate::core::Updates;
+use anyhow::Error;
 use clap::Parser;
 use log::{error, info, LevelFilter};
-use std::error;
 use std::fmt::Write;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
@@ -29,7 +29,11 @@ struct Opt {
     config: Option<PathBuf>,
 }
 
-fn log_err(context: &str, err: &dyn error::Error) {
+fn log_err<E>(context: &str, err: E)
+where
+    Error: From<E>,
+{
+    let err = Error::from(err);
     let mut msg = String::new();
     let _ = writeln!(msg, "{context} ");
     let _ = write!(msg, "\tcaused by: {err}");
@@ -63,7 +67,7 @@ fn init_configuration<T: AsRef<Path>>(file: Option<T>) -> DnsConfig {
                 // the user will see the error printed.
                 init_logging(LevelFilter::Warn);
                 let desc = format!("could not configure application from: {}", path.display());
-                log_err(&desc, &e);
+                log_err(&desc, e);
                 std::process::exit(1)
             }
         }
@@ -86,7 +90,7 @@ fn init_client() -> reqwest::Client {
         .user_agent(USER_AGENT)
         .build()
         .unwrap_or_else(|err| {
-            log_err("could not create HTTP client", &err);
+            log_err("could not create HTTP client", err);
             std::process::exit(1);
         })
 }
@@ -132,7 +136,7 @@ async fn main() {
                     Some(addr)
                 }
                 Err(e) => {
-                    log_err("could not successfully resolve IP", &e);
+                    log_err("could not successfully resolve IP", e);
                     None
                 }
             }
@@ -163,7 +167,7 @@ async fn main() {
                 Err(e) => {
                     failure = true;
                     let msg = format!("could not update {d}");
-                    log_err(&msg, e.as_ref());
+                    log_err(&msg, e);
                 }
             }
         }

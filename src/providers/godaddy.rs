@@ -1,6 +1,7 @@
 use crate::config::GoDaddyConfig;
 use crate::config::IpType;
 use crate::core::Updates;
+use crate::errors;
 use crate::errors::DnessError;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
@@ -55,12 +56,12 @@ impl GoClient<'_> {
             .header("Authorization", self.auth_header())
             .send()
             .await
-            .map_err(|e| DnessError::send_http(&get_url, "godaddy fetch records", e))?
+            .map_err(|e| errors::send_http(&get_url, "godaddy fetch records", e))?
             .error_for_status()
-            .map_err(|e| DnessError::bad_response(&get_url, "godaddy fetch records", e))?
+            .map_err(|e| errors::bad_response(&get_url, "godaddy fetch records", e))?
             .json()
             .await
-            .map_err(|e| DnessError::deserialize(&get_url, "godaddy fetch records", e))?;
+            .map_err(|e| errors::deserialize(&get_url, "godaddy fetch records", e))?;
         Ok(response)
     }
 
@@ -82,9 +83,9 @@ impl GoClient<'_> {
             }])
             .send()
             .await
-            .map_err(|e| DnessError::send_http(&put_url, "godaddy update records", e))?
+            .map_err(|e| errors::send_http(&put_url, "godaddy update records", e))?
             .error_for_status()
-            .map_err(|e| DnessError::bad_response(&put_url, "godaddy update records", e))?;
+            .map_err(|e| errors::bad_response(&put_url, "godaddy update records", e))?;
 
         Ok(())
     }

@@ -1,6 +1,7 @@
 use crate::config::{IpType, NamecheapConfig};
 use crate::core::Updates;
 use crate::dns::DnsResolver;
+use crate::errors;
 use crate::errors::DnessError;
 use log::{info, warn};
 use std::net::{IpAddr, Ipv4Addr};
@@ -27,15 +28,15 @@ impl NamecheapProvider<'_> {
             ])
             .send()
             .await
-            .map_err(|e| DnessError::send_http(&get_url, "namecheap update", e))?
+            .map_err(|e| errors::send_http(&get_url, "namecheap update", e))?
             .error_for_status()
-            .map_err(|e| DnessError::bad_response(&get_url, "namecheap update", e))?
+            .map_err(|e| errors::bad_response(&get_url, "namecheap update", e))?
             .text()
             .await
-            .map_err(|e| DnessError::deserialize(&get_url, "namecheap update", e))?;
+            .map_err(|e| errors::deserialize(&get_url, "namecheap update", e))?;
 
         if !response.contains("<ErrCount>0</ErrCount>") {
-            Err(DnessError::message(format!(
+            Err(errors::message(format!(
                 "expected zero errors, but received: {response}",
             )))
         } else {
@@ -59,7 +60,7 @@ pub async fn update_domains(
     // any issues with setting the namecheap record to an unchanged value, but it is less than
     // ideal. Namecheap does have a dns api that may be worth exploring.
     let IpAddr::V4(wan) = wan else {
-        return Err(DnessError::message(String::from(
+        return Err(errors::message(String::from(
             "IPv6 not supported for Namecheap",
         )));
     };

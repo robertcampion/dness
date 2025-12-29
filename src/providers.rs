@@ -7,13 +7,14 @@ mod noip;
 mod porkbun;
 
 use crate::{config::DomainConfig, core::Updates};
+use anyhow::Result;
 use std::net::IpAddr;
 
 pub async fn update_provider(
     http_client: &reqwest::Client,
     addr: IpAddr,
     domain: &DomainConfig,
-) -> Result<Updates, Box<dyn std::error::Error>> {
+) -> Result<Updates> {
     Ok(match domain {
         DomainConfig::Cloudflare(domain_config) => {
             cloudflare::update_domains(http_client, domain_config, addr).await?

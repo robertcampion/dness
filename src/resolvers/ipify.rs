@@ -1,5 +1,6 @@
 use std::net::IpAddr;
 
+use crate::errors;
 use crate::{config::IpType, errors::DnessError};
 
 pub async fn ipify_resolve_ip(
@@ -14,15 +15,15 @@ pub async fn ipify_resolve_ip(
         .get(ipify_url)
         .send()
         .await
-        .map_err(|e| DnessError::send_http(ipify_url, "ipify get ip", e))?
+        .map_err(|e| errors::send_http(ipify_url, "ipify get ip", e))?
         .error_for_status()
-        .map_err(|e| DnessError::bad_response(ipify_url, "ipify get ip", e))?
+        .map_err(|e| errors::bad_response(ipify_url, "ipify get ip", e))?
         .text()
         .await
-        .map_err(|e| DnessError::deserialize(ipify_url, "ipify get ip", e))?;
+        .map_err(|e| errors::deserialize(ipify_url, "ipify get ip", e))?;
 
     let ip = ip_text
         .parse::<IpAddr>()
-        .map_err(|_| DnessError::message(format!("unable to parse {} as an ip", &ip_text)))?;
+        .map_err(|_| errors::message(format!("unable to parse {} as an ip", &ip_text)))?;
     Ok(ip)
 }

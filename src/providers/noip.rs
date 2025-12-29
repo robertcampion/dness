@@ -1,3 +1,4 @@
+use crate::errors;
 use crate::{config::NoIpConfig, core::Updates, dns::DnsResolver, errors::DnessError};
 use log::{info, warn};
 use std::net::IpAddr;
@@ -23,15 +24,15 @@ impl NoIpProvider<'_> {
             .basic_auth(&self.config.username, Some(&self.config.password))
             .send()
             .await
-            .map_err(|e| DnessError::send_http(&get_url, "noip update", e))?
+            .map_err(|e| errors::send_http(&get_url, "noip update", e))?
             .error_for_status()
-            .map_err(|e| DnessError::bad_response(&get_url, "noip update", e))?
+            .map_err(|e| errors::bad_response(&get_url, "noip update", e))?
             .text()
             .await
-            .map_err(|e| DnessError::deserialize(&get_url, "noip update", e))?;
+            .map_err(|e| errors::deserialize(&get_url, "noip update", e))?;
 
         if !response.contains("good") {
-            Err(DnessError::message(format!(
+            Err(errors::message(format!(
                 "expected zero errors, but received: {response}"
             )))
         } else {

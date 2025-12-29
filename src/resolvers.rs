@@ -2,7 +2,7 @@ mod ipify;
 mod opendns;
 
 use crate::config::{DnsConfig, IpType, ResolverConfig};
-use crate::errors::DnessError;
+use crate::errors::{dns, DnessError};
 use std::net::IpAddr;
 
 /// Resolves the WAN IP or exits with a non-zero status code
@@ -12,9 +12,7 @@ pub async fn resolve_ip(
     ip_type: IpType,
 ) -> Result<IpAddr, DnessError> {
     Ok(match config.ip_resolver {
-        ResolverConfig::OpenDns => opendns::wan_lookup_ip(ip_type)
-            .await
-            .map_err(DnessError::dns)?,
+        ResolverConfig::OpenDns => opendns::wan_lookup_ip(ip_type).await.map_err(dns)?,
         ResolverConfig::Ipify => ipify::ipify_resolve_ip(client, ip_type).await?,
     })
 }

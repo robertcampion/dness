@@ -37,72 +37,29 @@ pub async fn update_provider(
     }
 }
 
-trait DnsLookupConfig<'a> {
-    type Provider: DnsLookupProvider;
-
-    fn create_provider(&'a self, http_client: &'a reqwest::Client) -> Self::Provider;
-
-    fn records(&'_ self) -> impl Iterator<Item = impl AsRef<str>>;
-    fn hostname(&'_ self) -> &str;
-
-    async fn update_domains(
-        &'a self,
-        http_client: &'a reqwest::Client,
-        new_addr: IpAddr,
-    ) -> Result<Updates> {
-        // Use cloudflare's DNS to query all the configured records. Ideally we'd
-        // use dns over tls for privacy purposes.
-        //
-        // We check all the records with DNS before issuing any requests to update
-        // them so that we can be a good netizen. One issue seen with this approach
-        // is that in subsequent invocations (cron, timers, etc) -- the dns record
-        // won't have propagated yet. I haven't seen any issues with setting the
-        // record to an unchanged value, but it is less than ideal.
-        let resolver = DnsResolver::create_cloudflare();
-        let provider = self.create_provider(http_client);
-
-        let mut results = Updates::default();
-
-        let hostname = self.hostname();
-        for record in self.records() {
-            let record = record.as_ref();
-            let fqdn = if record == "@" {
-                format!("{hostname}.")
-            } else {
-                format!("{record}.{hostname}.")
-            };
-
-            let response = resolver.ip_lookup(&fqdn, new_addr.into()).await;
-
-            match response {
-                Ok(current_addr) => {
-                    if current_addr == new_addr {
-                        results.current += 1;
-                    } else {
-                        provider.update_domain(record, new_addr).await?;
-                        info!("{record} from domain {hostname} updated from {current_addr} to {new_addr}");
-                        results.updated += 1;
-                    }
-                }
-                Err(e) => {
-                    // Could be a network issue or it could be that the record didn't exist.
-                    warn!("resolving domain ({fqdn}) encountered an error: {e}");
-                    results.missing += 1;
-                }
-            }
-        }
-
-        Ok(results)
-    }
-}
-
-trait DnsLookupProvider {
+trait DdclientProtocolConfig {
     fn name() -> &'static str;
-    fn create_request(&self, record: &str, wan: IpAddr) -> Result<reqwest::RequestBuilder>;
+    fn endpoint(&self) -> String;
+
+    fn hostname(&self) -> &str;
+    fn records(&self) -> &[String];
+
+    fn build_request(
+        &self,
+        request: reqwest::RequestBuilder,
+        record: &str,
+        wan: IpAddr,
+    ) -> Result<reqwest::RequestBuilder>;
     fn response_ok(response: &str) -> bool;
 
-    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
-        let (client, request) = self.create_request(record, wan)?.build_split();
+    async fn update_domain(
+        &self,
+        client: &reqwest::Client,
+        record: &str,
+        wan: IpAddr,
+    ) -> Result<()> {
+        let request = client.get(self.endpoint());
+        let request = self.build_request(request, record, wan)?.build();
         let context = || format!("{} update", Self::name());
 
         let request = request.map_err(|e| {
@@ -126,5 +83,53 @@ trait DnsLookupProvider {
         } else {
             Ok(())
         }
+    }
+
+    async fn update_domains(
+        &self,
+        http_client: &reqwest::Client,
+        new_addr: IpAddr,
+    ) -> Result<Updates> {
+        // Use cloudflare's DNS to query all the configured records. Ideally we'd
+        // use dns over tls for privacy purposes.
+        //
+        // We check all the records with DNS before issuing any requests to update
+        // them so that we can be a good netizen. One issue seen with this approach
+        // is that in subsequent invocations (cron, timers, etc) -- the dns record
+        // won't have propagated yet. I haven't seen any issues with setting the
+        // record to an unchanged value, but it is less than ideal.
+        let resolver = DnsResolver::create_cloudflare();
+        let mut results = Updates::default();
+
+        let hostname = self.hostname();
+        for record in self.records() {
+            let record = record.as_ref();
+            let fqdn = if record == "@" {
+                format!("{hostname}.")
+            } else {
+                format!("{record}.{hostname}.")
+            };
+
+            let response = resolver.ip_lookup(&fqdn, new_addr.into()).await;
+
+            match response {
+                Ok(current_addr) => {
+                    if current_addr == new_addr {
+                        results.current += 1;
+                    } else {
+                        self.update_domain(http_client, record, new_addr).await?;
+                        info!("{record} from domain {hostname} updated from {current_addr} to {new_addr}");
+                        results.updated += 1;
+                    }
+                }
+                Err(e) => {
+                    // Could be a network issue or it could be that the record didn't exist.
+                    warn!("resolving domain ({fqdn}) encountered an error: {e}");
+                    results.missing += 1;
+                }
+            }
+        }
+
+        Ok(results)
     }
 }

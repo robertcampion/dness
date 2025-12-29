@@ -1,31 +1,40 @@
 use crate::config::HeConfig;
-use crate::providers::{DnsLookupConfig, DnsLookupProvider};
+use crate::providers::DdclientProtocolConfig;
 use anyhow::Result;
 use std::net::IpAddr;
 
-#[derive(Debug)]
-pub struct HeProvider<'a> {
-    get_url: String,
-    config: &'a HeConfig,
-    client: &'a reqwest::Client,
-}
-
-impl DnsLookupProvider for HeProvider<'_> {
+impl DdclientProtocolConfig for HeConfig {
     fn name() -> &'static str {
         "he"
     }
 
+    fn endpoint(&self) -> String {
+        let base_url = self.base_url.trim_end_matches('/');
+        format!("{base_url}/nic/update")
+    }
+
+    fn hostname(&self) -> &str {
+        &self.hostname
+    }
+
+    fn records(&self) -> &[String] {
+        &self.records
+    }
+
     /// <https://dns.he.net/docs.html>
-    fn create_request(&self, record: &str, wan: IpAddr) -> Result<reqwest::RequestBuilder> {
+    fn build_request(
+        &self,
+        request: reqwest::RequestBuilder,
+        record: &str,
+        wan: IpAddr,
+    ) -> Result<reqwest::RequestBuilder> {
         let host = if record == "@" {
-            &self.config.hostname
+            &self.hostname
         } else {
-            &format!("{}.{}", record, self.config.hostname)
+            &format!("{}.{}", record, self.hostname)
         };
 
-        let request = self
-            .client
-            .get(&self.get_url)
+        let request = request
             // he.net closes the connection without sending a Connection: close
             // header. So we need to intentionally downgrade from HTTP/1.1,
             // where keep-alive is the default, to HTTP/1.0 so that reqwest will
@@ -33,7 +42,7 @@ impl DnsLookupProvider for HeProvider<'_> {
             .version(reqwest::Version::HTTP_10)
             .query(&(
                 ("hostname", &host),
-                ("password", &self.config.password),
+                ("password", &self.password),
                 ("myip", &wan),
             ));
 
@@ -42,29 +51,6 @@ impl DnsLookupProvider for HeProvider<'_> {
 
     fn response_ok(response: &str) -> bool {
         response.contains("good") || response.contains("nochg")
-    }
-}
-
-impl<'a> DnsLookupConfig<'a> for HeConfig {
-    type Provider = HeProvider<'a>;
-
-    fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
-        let base_url = self.base_url.trim_end_matches('/');
-        let get_url = format!("{base_url}/nic/update");
-
-        HeProvider {
-            get_url,
-            config: self,
-            client,
-        }
-    }
-
-    fn records(&self) -> impl Iterator<Item = impl AsRef<str>> {
-        self.records.iter()
-    }
-
-    fn hostname(&self) -> &str {
-        &self.hostname
     }
 }
 

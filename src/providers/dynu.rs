@@ -1,27 +1,36 @@
 use anyhow::Result;
 
 use crate::config::DynuConfig;
-use crate::providers::{DnsLookupConfig, DnsLookupProvider};
+use crate::providers::DdclientProtocolConfig;
 use std::net::IpAddr;
 
-#[derive(Debug)]
-pub struct DynuProvider<'a> {
-    get_url: String,
-    config: &'a DynuConfig,
-    client: &'a reqwest::Client,
-}
-
-impl DnsLookupProvider for DynuProvider<'_> {
+impl DdclientProtocolConfig for DynuConfig {
     fn name() -> &'static str {
         "dynu"
     }
 
-    fn create_request(&self, record: &str, wan: IpAddr) -> Result<reqwest::RequestBuilder> {
-        let request = self
-            .client
-            .get(&self.get_url)
-            .basic_auth(&self.config.username, Some(&self.config.password))
-            .query(&[("hostname", &self.config.hostname)]);
+    fn endpoint(&self) -> String {
+        let base_url = self.base_url.trim_end_matches('/');
+        format!("{base_url}/nic/update")
+    }
+
+    fn hostname(&self) -> &str {
+        &self.hostname
+    }
+
+    fn records(&self) -> &[String] {
+        &self.records
+    }
+
+    fn build_request(
+        &self,
+        request: reqwest::RequestBuilder,
+        record: &str,
+        wan: IpAddr,
+    ) -> Result<reqwest::RequestBuilder> {
+        let request = request
+            .basic_auth(&self.username, Some(&self.password))
+            .query(&[("hostname", &self.hostname)]);
 
         let request = match wan {
             IpAddr::V4(ipv4_addr) => request.query(&(("myip", ipv4_addr), ("myipv6", "no"))),
@@ -39,29 +48,6 @@ impl DnsLookupProvider for DynuProvider<'_> {
 
     fn response_ok(response: &str) -> bool {
         response.contains("nochg") || response.contains("good")
-    }
-}
-
-impl<'a> DnsLookupConfig<'a> for DynuConfig {
-    type Provider = DynuProvider<'a>;
-
-    fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
-        let base_url = self.base_url.trim_end_matches('/');
-        let get_url = format!("{base_url}/nic/update");
-
-        DynuProvider {
-            get_url,
-            config: self,
-            client,
-        }
-    }
-
-    fn records(&self) -> impl Iterator<Item = impl AsRef<str>> {
-        self.records.iter()
-    }
-
-    fn hostname(&self) -> &str {
-        &self.hostname
     }
 }
 

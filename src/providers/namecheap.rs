@@ -1,29 +1,41 @@
 use crate::config::NamecheapConfig;
-use crate::providers::{DnsLookupConfig, DnsLookupProvider};
+use crate::providers::DdclientProtocolConfig;
 use anyhow::{anyhow, Result};
 use std::net::IpAddr;
 
-#[derive(Debug)]
-pub struct NamecheapProvider<'a> {
-    get_url: String,
-    client: &'a reqwest::Client,
-    config: &'a NamecheapConfig,
-}
-
-impl DnsLookupProvider for NamecheapProvider<'_> {
+impl DdclientProtocolConfig for NamecheapConfig {
     fn name() -> &'static str {
         "namecheap"
     }
+
+    fn endpoint(&self) -> String {
+        let base_url = self.base_url.trim_end_matches('/').to_string();
+        format!("{base_url}/update")
+    }
+
+    fn hostname(&self) -> &str {
+        &self.domain
+    }
+
+    fn records(&self) -> &[String] {
+        &self.records
+    }
+
     /// <https://www.namecheap.com/support/knowledgebase/article.aspx/29/11/how-do-i-use-a-browser-to-dynamically-update-the-hosts-ip>
-    fn create_request(&self, record: &str, wan: IpAddr) -> Result<reqwest::RequestBuilder> {
+    fn build_request(
+        &self,
+        request: reqwest::RequestBuilder,
+        record: &str,
+        wan: IpAddr,
+    ) -> Result<reqwest::RequestBuilder> {
         let IpAddr::V4(wan) = wan else {
             return Err(anyhow!("IPv6 not supported for Namecheap"));
         };
 
-        let request = self.client.get(&self.get_url).query(&(
+        let request = request.query(&(
             ("host", record),
-            ("domain", &self.config.domain),
-            ("password", &self.config.ddns_password),
+            ("domain", &self.domain),
+            ("password", &self.ddns_password),
             ("ip", &wan),
         ));
 
@@ -32,29 +44,6 @@ impl DnsLookupProvider for NamecheapProvider<'_> {
 
     fn response_ok(response: &str) -> bool {
         response.contains("<ErrCount>0</ErrCount>")
-    }
-}
-
-impl<'a> DnsLookupConfig<'a> for NamecheapConfig {
-    type Provider = NamecheapProvider<'a>;
-
-    fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
-        let base_url = self.base_url.trim_end_matches('/').to_string();
-        let get_url = format!("{base_url}/update");
-
-        NamecheapProvider {
-            get_url,
-            config: self,
-            client,
-        }
-    }
-
-    fn records(&self) -> impl Iterator<Item = impl AsRef<str>> {
-        self.records.iter()
-    }
-
-    fn hostname(&self) -> &str {
-        &self.domain
     }
 }
 

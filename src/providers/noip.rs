@@ -1,57 +1,43 @@
 use crate::config::NoIpConfig;
-use crate::providers::{DnsLookupConfig, DnsLookupProvider};
+use crate::providers::DdclientProtocolConfig;
 use anyhow::Result;
 use std::net::IpAddr;
 
-#[derive(Debug)]
-pub struct NoIpProvider<'a> {
-    get_url: String,
-    client: &'a reqwest::Client,
-    config: &'a NoIpConfig,
-}
-
-impl DnsLookupProvider for NoIpProvider<'_> {
+impl DdclientProtocolConfig for NoIpConfig {
     fn name() -> &'static str {
         "noip"
     }
 
+    fn endpoint(&self) -> String {
+        let base_url = self.base_url.trim_end_matches('/');
+        format!("{base_url}/nic/update")
+    }
+
+    fn hostname(&self) -> &str {
+        &self.hostname
+    }
+
+    fn records(&self) -> &[String] {
+        &self.records
+    }
+
     /// <https://www.noip.com/integrate/request>
-    fn create_request(&self, record: &str, wan: IpAddr) -> Result<reqwest::RequestBuilder> {
+    fn build_request(
+        &self,
+        request: reqwest::RequestBuilder,
+        record: &str,
+        wan: IpAddr,
+    ) -> Result<reqwest::RequestBuilder> {
         let _ = record; // we only have one record to update
-        let request = self
-            .client
-            .get(&self.get_url)
-            .basic_auth(&self.config.username, Some(&self.config.password))
-            .query(&(("hostname", &self.config.hostname), ("myip", &wan)));
+        let request = request
+            .basic_auth(&self.username, Some(&self.password))
+            .query(&(("hostname", &self.hostname), ("myip", &wan)));
 
         Ok(request)
     }
 
     fn response_ok(response: &str) -> bool {
         response.contains("good")
-    }
-}
-
-impl<'a> DnsLookupConfig<'a> for NoIpConfig {
-    type Provider = NoIpProvider<'a>;
-
-    fn create_provider(&'a self, client: &'a reqwest::Client) -> Self::Provider {
-        let base_url = self.base_url.trim_end_matches('/');
-        let get_url = format!("{base_url}/nic/update");
-
-        NoIpProvider {
-            get_url,
-            config: self,
-            client,
-        }
-    }
-
-    fn records(&self) -> impl Iterator<Item = impl AsRef<str>> {
-        std::iter::once("@")
-    }
-
-    fn hostname(&self) -> &str {
-        &self.hostname
     }
 }
 
@@ -94,6 +80,7 @@ mod tests {
             hostname: String::from("d.root-servers.net"),
             username: String::from("me@example.com"),
             password: String::from("my-pass"),
+            records: vec![String::from("@")],
             ip_types: vec![IpType::V4],
         };
 

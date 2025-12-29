@@ -197,8 +197,14 @@ pub struct NoIpConfig {
     pub username: String,
     pub password: String,
     pub hostname: String,
+    #[serde(skip_deserializing, default = "default_records")]
+    pub records: Vec<String>,
     #[serde(default = "ipv4_only")]
     pub ip_types: Vec<IpType>,
+}
+
+fn default_records() -> Vec<String> {
+    vec![String::from("@")]
 }
 
 #[derive(Deserialize, Clone, PartialEq, Debug)]
@@ -478,6 +484,7 @@ mod tests {
                 username: String::from("myemail@example.org"),
                 hostname: String::from("dnesstest.hopto.org"),
                 password: String::from("super_secret_password"),
+                records: vec![String::from("@")],
                 ip_types: vec![IpType::V4],
             })
         );

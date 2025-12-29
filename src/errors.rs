@@ -1,5 +1,24 @@
 use std::fmt;
 
+macro_rules! log_err {
+    ($err:expr, $fmt:expr $(, $($arg:tt)*)?) => {
+        ::log::error!(
+            "{}",
+            $crate::errors::format_error($err, format_args!($fmt, $($($arg)*)?))
+        )
+    };
+}
+pub(crate) use log_err;
+
+pub fn format_error(err: anyhow::Error, context: fmt::Arguments) -> String {
+    use fmt::Write as _;
+    let mut msg = format!("{context}");
+    for cause in err.chain() {
+        let _ = write!(msg, "\n\tcaused by: {cause}");
+    }
+    msg
+}
+
 #[derive(Debug)]
 pub enum DnessErrorKind {
     SendHttp { url: String, context: String },

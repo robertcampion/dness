@@ -13,10 +13,10 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use crate::config::{parse_config, DnsConfig, IpType};
 use crate::core::Updates;
-use anyhow::{anyhow, Error};
+use crate::errors::log_err;
+use anyhow::anyhow;
 use clap::Parser;
 use log::{error, info, LevelFilter};
-use std::fmt::Write;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -27,20 +27,6 @@ struct Opt {
     /// Sets a custom config file
     #[structopt(short, long)]
     config: Option<PathBuf>,
-}
-
-fn log_err(context: &str, err: Error) {
-    let mut msg = String::new();
-    let _ = writeln!(msg, "{context} ");
-    let _ = write!(msg, "\tcaused by: {err}");
-
-    let mut ie = err.source();
-    while let Some(cause) = ie {
-        let _ = write!(msg, "\n\tcaused by: {cause}");
-        ie = cause.source();
-    }
-
-    error!("{}", msg);
 }
 
 fn init_logging(lvl: LevelFilter) {
@@ -62,8 +48,11 @@ fn init_configuration<T: AsRef<Path>>(file: Option<T>) -> DnsConfig {
                 // If there is an error during configuration, we assume a log level of Warn so that
                 // the user will see the error printed.
                 init_logging(LevelFilter::Warn);
-                let desc = format!("could not configure application from: {}", path.display());
-                log_err(&desc, e);
+                log_err!(
+                    e,
+                    "could not configure application from: {}",
+                    path.display()
+                );
                 std::process::exit(1)
             }
         }
@@ -86,7 +75,7 @@ fn init_client() -> reqwest::Client {
         .user_agent(USER_AGENT)
         .build()
         .unwrap_or_else(|err| {
-            log_err("could not create HTTP client", anyhow!(err));
+            log_err!(anyhow!(err), "could not create HTTP client");
             std::process::exit(1);
         })
 }
@@ -95,7 +84,7 @@ fn init_client() -> reqwest::Client {
 async fn main() {
     let start = Instant::now();
     let opt = Opt::parse();
-    let config = init_configuration(opt.config.as_ref());
+    let config = init_configuration(opt.config);
 
     init_logging(config.log.level);
 
@@ -132,7 +121,7 @@ async fn main() {
                     Some(addr)
                 }
                 Err(e) => {
-                    log_err("could not successfully resolve IP", e);
+                    log_err!(e, "could not successfully resolve IP");
                     None
                 }
             }
@@ -162,8 +151,7 @@ async fn main() {
                 }
                 Err(e) => {
                     failure = true;
-                    let msg = format!("could not update {d}");
-                    log_err(&msg, e);
+                    log_err!(e, "could not update {d}");
                 }
             }
         }

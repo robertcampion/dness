@@ -4,30 +4,17 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum DnessErrorKind {
-    SendHttp {
-        url: String,
-        context: String,
-        source: reqwest::Error,
-    },
-    BadResponse {
-        url: String,
-        context: String,
-        source: reqwest::Error,
-    },
-    Deserialize {
-        url: String,
-        context: String,
-        source: reqwest::Error,
-    },
+    SendHttp { url: String, context: String },
+    BadResponse { url: String, context: String },
+    Deserialize { url: String, context: String },
     Message(String),
-    Dns {
-        source: DnsError,
-    },
+    Dns,
 }
 
 #[derive(Debug)]
 pub struct DnessError {
     kind: DnessErrorKind,
+    source: Option<Box<dyn std::error::Error>>,
 }
 
 impl DnessError {
@@ -36,8 +23,8 @@ impl DnessError {
             kind: DnessErrorKind::SendHttp {
                 url: String::from(url),
                 context: String::from(context),
-                source,
             },
+            source: Some(Box::new(source)),
         }
     }
 
@@ -46,8 +33,8 @@ impl DnessError {
             kind: DnessErrorKind::BadResponse {
                 url: String::from(url),
                 context: String::from(context),
-                source,
             },
+            source: Some(Box::new(source)),
         }
     }
 
@@ -56,14 +43,15 @@ impl DnessError {
             kind: DnessErrorKind::Deserialize {
                 url: String::from(url),
                 context: String::from(context),
-                source,
             },
+            source: Some(Box::new(source)),
         }
     }
 
     pub fn message(msg: String) -> DnessError {
         DnessError {
             kind: DnessErrorKind::Message(msg),
+            source: None,
         }
     }
 }
@@ -71,26 +59,27 @@ impl DnessError {
 impl From<DnsError> for DnessError {
     fn from(source: DnsError) -> Self {
         DnessError {
-            kind: DnessErrorKind::Dns { source },
+            kind: DnessErrorKind::Dns,
+            source: Some(Box::new(source)),
         }
     }
 }
 
 impl error::Error for DnessError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self.kind {
-            DnessErrorKind::SendHttp { ref source, .. } => Some(source),
-            DnessErrorKind::BadResponse { ref source, .. } => Some(source),
-            DnessErrorKind::Deserialize { ref source, .. } => Some(source),
-            DnessErrorKind::Dns { ref source, .. } => Some(source),
-            _ => None,
-        }
+        self.source.as_deref()
     }
 }
 
 impl fmt::Display for DnessError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.kind {
+        self.kind.fmt(f)
+    }
+}
+
+impl fmt::Display for DnessErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
             DnessErrorKind::SendHttp { url, context, .. } => write!(
                 f,
                 "unable to send http request for {context}: url attempted: {url}"
@@ -103,7 +92,7 @@ impl fmt::Display for DnessError {
                 f,
                 "unable to deserialize response for {context}: url attempted: {url}"
             ),
-            DnessErrorKind::Dns { .. } => write!(f, "dns lookup"),
+            DnessErrorKind::Dns => write!(f, "dns lookup"),
             DnessErrorKind::Message(msg) => write!(f, "{msg}"),
         }
     }

@@ -1,8 +1,8 @@
 use crate::config::DynuConfig;
 use crate::core::Updates;
 use crate::dns::DnsResolver;
-use crate::errors;
-use anyhow::{anyhow, Result};
+use crate::errors::DnessErrorKind;
+use anyhow::{anyhow, Context as _, Result};
 use log::{info, warn};
 use std::net::IpAddr;
 
@@ -43,12 +43,12 @@ impl DynuProvider<'_> {
             )
             .send()
             .await
-            .map_err(|e| errors::send_http(&get_url, "dynu update", e))?
+            .context(DnessErrorKind::send_http(&get_url, "dynu update"))?
             .error_for_status()
-            .map_err(|e| errors::bad_response(&get_url, "dynu update", e))?
+            .context(DnessErrorKind::bad_response(&get_url, "dynu update"))?
             .text()
             .await
-            .map_err(|e| errors::deserialize(&get_url, "dynu update", e))?;
+            .context(DnessErrorKind::deserialize(&get_url, "dynu update"))?;
 
         if !response.contains("nochg") && !response.contains("good") {
             Err(anyhow!("expected zero errors, but received: {response}"))

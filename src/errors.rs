@@ -1,4 +1,3 @@
-use anyhow::Error;
 use std::fmt;
 
 #[derive(Debug)]
@@ -9,25 +8,27 @@ pub enum DnessErrorKind {
     Dns,
 }
 
-pub fn send_http(url: &str, context: &str, source: reqwest::Error) -> Error {
-    Error::from(source).context(DnessErrorKind::SendHttp {
-        url: String::from(url),
-        context: String::from(context),
-    })
-}
+impl DnessErrorKind {
+    pub fn send_http(url: &str, context: &str) -> Self {
+        Self::SendHttp {
+            url: String::from(url),
+            context: String::from(context),
+        }
+    }
 
-pub fn bad_response(url: &str, context: &str, source: reqwest::Error) -> Error {
-    Error::from(source).context(DnessErrorKind::BadResponse {
-        url: String::from(url),
-        context: String::from(context),
-    })
-}
+    pub fn bad_response(url: &str, context: &str) -> Self {
+        Self::BadResponse {
+            url: String::from(url),
+            context: String::from(context),
+        }
+    }
 
-pub fn deserialize(url: &str, context: &str, source: reqwest::Error) -> Error {
-    Error::from(source).context(DnessErrorKind::Deserialize {
-        url: String::from(url),
-        context: String::from(context),
-    })
+    pub fn deserialize(url: &str, context: &str) -> Self {
+        Self::Deserialize {
+            url: String::from(url),
+            context: String::from(context),
+        }
+    }
 }
 
 impl fmt::Display for DnessErrorKind {

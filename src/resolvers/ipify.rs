@@ -1,8 +1,8 @@
 use std::net::IpAddr;
 
 use crate::config::IpType;
-use crate::errors;
-use anyhow::Result;
+use crate::errors::DnessErrorKind;
+use anyhow::{Context as _, Result};
 
 pub async fn ipify_resolve_ip(client: &reqwest::Client, ip_type: IpType) -> Result<IpAddr> {
     let ipify_url = match ip_type {
@@ -13,12 +13,12 @@ pub async fn ipify_resolve_ip(client: &reqwest::Client, ip_type: IpType) -> Resu
         .get(ipify_url)
         .send()
         .await
-        .map_err(|e| errors::send_http(ipify_url, "ipify get ip", e))?
+        .context(DnessErrorKind::send_http(ipify_url, "ipify get ip"))?
         .error_for_status()
-        .map_err(|e| errors::bad_response(ipify_url, "ipify get ip", e))?
+        .context(DnessErrorKind::bad_response(ipify_url, "ipify get ip"))?
         .text()
         .await
-        .map_err(|e| errors::deserialize(ipify_url, "ipify get ip", e))?;
+        .context(DnessErrorKind::deserialize(ipify_url, "ipify get ip"))?;
 
     let ip = ip_text
         .parse::<IpAddr>()

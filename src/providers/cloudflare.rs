@@ -1,9 +1,9 @@
 use crate::config::{CloudflareConfig, IpType};
 use crate::core::Updates;
+use anyhow::{anyhow, Context as _, Result};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::error;
 use std::fmt;
 use std::net::IpAddr;
 
@@ -75,35 +75,20 @@ struct CloudflareClient<'a> {
 }
 
 #[derive(Debug)]
-pub struct ClError {
-    kind: ClErrorKind,
-}
-
-#[derive(Debug)]
 pub enum ClErrorKind {
-    SendHttp(&'static str, reqwest::Error),
-    DecodeHttp(&'static str, reqwest::Error),
+    SendHttp(&'static str),
+    DecodeHttp(&'static str),
     ErrorResponse(&'static str, Vec<CloudflareError>),
     MissingResult(&'static str),
     UnexpectedNumberOfZones(usize),
 }
 
-impl error::Error for ClError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self.kind {
-            ClErrorKind::SendHttp(_, ref e) => Some(e),
-            ClErrorKind::DecodeHttp(_, ref e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl fmt::Display for ClError {
+impl fmt::Display for ClErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "communicating with cloudflare: ")?;
-        match self.kind {
-            ClErrorKind::SendHttp(action, ref _e) => write!(f, "http send error for {action}"),
-            ClErrorKind::DecodeHttp(action, ref _e) => {
+        match self {
+            ClErrorKind::SendHttp(action) => write!(f, "http send error for {action}"),
+            ClErrorKind::DecodeHttp(action) => {
                 write!(f, "decoding response for {action}")
             }
             ClErrorKind::ErrorResponse(action, ref errors) => {
@@ -163,7 +148,7 @@ impl CloudflareClient<'_> {
     async fn create<'b>(
         client: &'b reqwest::Client,
         config: &CloudflareConfig,
-    ) -> Result<CloudflareClient<'b>, ClError> {
+    ) -> Result<CloudflareClient<'b>> {
         let authorizer = create_authorizer(config);
 
         // Need to translate our zone name into an id
@@ -176,24 +161,19 @@ impl CloudflareClient<'_> {
         let response: CloudflareResponse<Vec<CloudflareZone>> = request_builder
             .send()
             .await
-            .map_err(|e| ClError {
-                kind: ClErrorKind::SendHttp("get zones", e),
-            })?
+            .context(ClErrorKind::SendHttp("get zones"))?
             .json()
             .await
-            .map_err(|e| ClError {
-                kind: ClErrorKind::DecodeHttp("get zones", e),
-            })?;
+            .context(ClErrorKind::DecodeHttp("get zones"))?;
 
         if !response.success {
-            Err(ClError {
-                kind: ClErrorKind::ErrorResponse("zones", response.errors.clone()),
-            })
+            Err(anyhow!(ClErrorKind::ErrorResponse(
+                "zones",
+                response.errors.clone()
+            )))
         } else if let Some(zone) = response.result {
             if zone.len() != 1 {
-                return Err(ClError {
-                    kind: ClErrorKind::UnexpectedNumberOfZones(zone.len()),
-                });
+                return Err(anyhow!(ClErrorKind::UnexpectedNumberOfZones(zone.len())));
             }
 
             let zone_id = zone[0].id.clone();
@@ -206,15 +186,13 @@ impl CloudflareClient<'_> {
                 authorizer,
             })
         } else {
-            Err(ClError {
-                kind: ClErrorKind::MissingResult("zones"),
-            })
+            Err(anyhow!(ClErrorKind::MissingResult("zones")))
         }
     }
 
     // Grab all the sub domains in the zone, but since there can be many of them, cloudflare
     // paginates the results.
-    async fn paginate_domains(&self, ip_type: IpType) -> Result<Vec<CloudflareDnsRecord>, ClError> {
+    async fn paginate_domains(&self, ip_type: IpType) -> Result<Vec<CloudflareDnsRecord>> {
         let mut done = false;
         let mut page = 0;
         let mut dns_records: Vec<CloudflareDnsRecord> = Vec::new();
@@ -239,19 +217,16 @@ impl CloudflareClient<'_> {
             let response: CloudflareResponse<Vec<CloudflareDnsRecord>> = request_builder
                 .send()
                 .await
-                .map_err(|e| ClError {
-                    kind: ClErrorKind::SendHttp("get records", e),
-                })?
+                .context(ClErrorKind::SendHttp("get records"))?
                 .json()
                 .await
-                .map_err(|e| ClError {
-                    kind: ClErrorKind::DecodeHttp("get records", e),
-                })?;
+                .context(ClErrorKind::DecodeHttp("get records"))?;
 
             if !response.success {
-                return Err(ClError {
-                    kind: ClErrorKind::ErrorResponse("get records", response.errors.clone()),
-                });
+                return Err(anyhow!(ClErrorKind::ErrorResponse(
+                    "get records",
+                    response.errors.clone()
+                )));
             } else if let Some(records) = response.result {
                 dns_records.extend(records);
 
@@ -265,9 +240,7 @@ impl CloudflareClient<'_> {
                     );
                 }
             } else {
-                return Err(ClError {
-                    kind: ClErrorKind::MissingResult("get records"),
-                });
+                return Err(anyhow!(ClErrorKind::MissingResult("get records")));
             }
         }
 
@@ -284,7 +257,7 @@ impl CloudflareClient<'_> {
         crate::core::log_missing_domains(&self.records, &actual, "cloudflare", &self.zone_name)
     }
 
-    async fn update(&self, addr: IpAddr) -> Result<Updates, ClError> {
+    async fn update(&self, addr: IpAddr) -> Result<Updates> {
         let mut dns_records = self.paginate_domains(IpType::from(addr)).await?;
         let missing = self.log_missing_domains(&dns_records) as i32;
         let mut current = 0;
@@ -333,11 +306,7 @@ impl CloudflareClient<'_> {
         })
     }
 
-    async fn update_record(
-        &self,
-        record: &CloudflareDnsRecord,
-        addr: IpAddr,
-    ) -> Result<(), ClError> {
+    async fn update_record(&self, record: &CloudflareDnsRecord, addr: IpAddr) -> Result<()> {
         let url = format!(
             "https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}",
             self.zone_id, record.id
@@ -359,19 +328,16 @@ impl CloudflareClient<'_> {
             .json(&update)
             .send()
             .await
-            .map_err(|e| ClError {
-                kind: ClErrorKind::SendHttp("update dns", e),
-            })?
+            .context(ClErrorKind::SendHttp("update dns"))?
             .json()
             .await
-            .map_err(|e| ClError {
-                kind: ClErrorKind::DecodeHttp("update dns", e),
-            })?;
+            .context(ClErrorKind::DecodeHttp("update dns"))?;
 
         if !response.success {
-            Err(ClError {
-                kind: ClErrorKind::ErrorResponse("update dns", response.errors),
-            })
+            Err(anyhow!(ClErrorKind::ErrorResponse(
+                "update dns",
+                response.errors
+            )))
         } else {
             Ok(())
         }
@@ -390,7 +356,7 @@ pub async fn update_domains(
     client: &reqwest::Client,
     config: &CloudflareConfig,
     addr: IpAddr,
-) -> Result<Updates, ClError> {
+) -> Result<Updates> {
     CloudflareClient::create(client, config)
         .await?
         .update(addr)

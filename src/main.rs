@@ -13,7 +13,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use crate::config::{parse_config, DnsConfig, IpType};
 use crate::core::Updates;
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use clap::Parser;
 use log::{error, info, LevelFilter};
 use std::fmt::Write;
@@ -29,11 +29,7 @@ struct Opt {
     config: Option<PathBuf>,
 }
 
-fn log_err<E>(context: &str, err: E)
-where
-    Error: From<E>,
-{
-    let err = Error::from(err);
+fn log_err(context: &str, err: Error) {
     let mut msg = String::new();
     let _ = writeln!(msg, "{context} ");
     let _ = write!(msg, "\tcaused by: {err}");
@@ -90,7 +86,7 @@ fn init_client() -> reqwest::Client {
         .user_agent(USER_AGENT)
         .build()
         .unwrap_or_else(|err| {
-            log_err("could not create HTTP client", err);
+            log_err("could not create HTTP client", anyhow!(err));
             std::process::exit(1);
         })
 }

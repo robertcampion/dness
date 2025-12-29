@@ -1,49 +1,32 @@
-use handlebars::{Handlebars, RenderError, TemplateError};
+use anyhow::{Context as _, Result};
+use handlebars::Handlebars;
 use log::LevelFilter;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
-use std::io::Error as IoError;
 use std::io::Read;
 use std::net::IpAddr;
 use std::path::Path;
-use std::{collections::HashMap, error};
-
-#[derive(Debug)]
-pub struct ConfigError {
-    kind: ConfigErrorKind,
-}
 
 #[derive(Debug)]
 pub enum ConfigErrorKind {
-    FileNotFound(IoError),
-    Misread(IoError),
-    Parse(toml::de::Error),
-    Template(TemplateError),
-    Render(RenderError),
+    FileNotFound,
+    Misread,
+    Parse,
+    Template,
+    Render,
 }
 
-impl error::Error for ConfigError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self.kind {
-            ConfigErrorKind::FileNotFound(ref e) => Some(e),
-            ConfigErrorKind::Misread(ref e) => Some(e),
-            ConfigErrorKind::Parse(ref e) => Some(e),
-            ConfigErrorKind::Template(ref e) => Some(e),
-            ConfigErrorKind::Render(ref e) => Some(e),
-        }
-    }
-}
-
-impl fmt::Display for ConfigError {
+impl fmt::Display for ConfigErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "config issue: ")?;
-        match self.kind {
-            ConfigErrorKind::FileNotFound(ref _e) => write!(f, "file not found"),
-            ConfigErrorKind::Misread(ref _e) => write!(f, "unable to read file"),
-            ConfigErrorKind::Parse(ref _e) => write!(f, "a parsing error"),
-            ConfigErrorKind::Template(ref _e) => write!(f, "config template error"),
-            ConfigErrorKind::Render(ref _e) => write!(f, "config template rendering error"),
+        match self {
+            ConfigErrorKind::FileNotFound => write!(f, "file not found"),
+            ConfigErrorKind::Misread => write!(f, "unable to read file"),
+            ConfigErrorKind::Parse => write!(f, "a parsing error"),
+            ConfigErrorKind::Template => write!(f, "config template error"),
+            ConfigErrorKind::Render => write!(f, "config template rendering error"),
         }
     }
 }
@@ -268,36 +251,27 @@ fn porkbun_base_url() -> String {
     String::from("https://api.porkbun.com/api/json/v3")
 }
 
-pub fn parse_config<P: AsRef<Path>>(path: P) -> Result<DnsConfig, ConfigError> {
-    let mut f = File::open(path).map_err(|e| ConfigError {
-        kind: ConfigErrorKind::FileNotFound(e),
-    })?;
+pub fn parse_config<P: AsRef<Path>>(path: P) -> Result<DnsConfig> {
+    let mut f = File::open(path).context(ConfigErrorKind::FileNotFound)?;
 
     let mut contents = String::new();
-    f.read_to_string(&mut contents).map_err(|e| ConfigError {
-        kind: ConfigErrorKind::Misread(e),
-    })?;
+    f.read_to_string(&mut contents)
+        .context(ConfigErrorKind::Misread)?;
 
     let mut handlebars = Handlebars::new();
 
     handlebars
         .register_template_string("dness_config", contents)
-        .map_err(|e| ConfigError {
-            kind: ConfigErrorKind::Template(e),
-        })?;
+        .context(ConfigErrorKind::Template)?;
     handlebars.register_escape_fn(handlebars::no_escape);
     handlebars.set_strict_mode(true);
 
     let data: HashMap<_, _> = std::env::vars().collect();
     let config_contents = handlebars
         .render("dness_config", &data)
-        .map_err(|e| ConfigError {
-            kind: ConfigErrorKind::Render(e),
-        })?;
+        .context(ConfigErrorKind::Render)?;
 
-    toml::from_str(&config_contents).map_err(|e| ConfigError {
-        kind: ConfigErrorKind::Parse(e),
-    })
+    toml::from_str(&config_contents).context(ConfigErrorKind::Parse)
 }
 
 #[cfg(test)]

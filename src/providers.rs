@@ -6,7 +6,8 @@ mod namecheap;
 mod noip;
 mod porkbun;
 
-use crate::{config::DomainConfig, core::Updates};
+use crate::config::DomainConfig;
+use crate::core::Updates;
 use anyhow::Result;
 use std::net::IpAddr;
 
@@ -15,27 +16,27 @@ pub async fn update_provider(
     addr: IpAddr,
     domain: &DomainConfig,
 ) -> Result<Updates> {
-    Ok(match domain {
+    match domain {
         DomainConfig::Cloudflare(domain_config) => {
-            cloudflare::update_domains(http_client, domain_config, addr).await?
+            cloudflare::update_domains(http_client, domain_config, addr).await
         }
         DomainConfig::GoDaddy(domain_config) => {
-            godaddy::update_domains(http_client, domain_config, addr).await?
+            godaddy::update_domains(http_client, domain_config, addr).await
         }
         DomainConfig::Namecheap(domain_config) => {
-            namecheap::update_domains(http_client, domain_config, addr).await?
+            namecheap::update_domains(http_client, domain_config, addr).await
         }
         DomainConfig::He(domain_config) => {
-            he::update_domains(http_client, domain_config, addr).await?
+            he::update_domains(http_client, domain_config, addr).await
         }
         DomainConfig::NoIp(domain_config) => {
-            noip::update_domains(http_client, domain_config, addr).await?
+            noip::update_domains(http_client, domain_config, addr).await
         }
         DomainConfig::Dynu(domain_config) => {
-            dynu::update_domains(http_client, domain_config, addr).await?
+            dynu::update_domains(http_client, domain_config, addr).await
         }
         DomainConfig::Porkbun(domain_config) => {
-            porkbun::update_domains(http_client, domain_config, addr).await?
+            porkbun::update_domains(http_client, domain_config, addr).await
         }
-    })
+    }
 }

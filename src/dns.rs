@@ -1,5 +1,6 @@
 use crate::config::IpType;
-use crate::errors::{DnsError, DnsErrorKind};
+use crate::errors::DnsErrorKind;
+use anyhow::{anyhow, Context, Result};
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig};
 use hickory_resolver::name_server::TokioConnectionProvider;
 use hickory_resolver::TokioResolver;
@@ -31,15 +32,13 @@ impl DnsResolver {
         DnsResolver { resolver }
     }
 
-    pub async fn ip_lookup(&self, host: &str, ip_type: IpType) -> Result<IpAddr, DnsError> {
+    pub async fn ip_lookup(&self, host: &str, ip_type: IpType) -> Result<IpAddr> {
         let addrs: Vec<IpAddr> = match ip_type {
             IpType::V4 => self
                 .resolver
                 .ipv4_lookup(host)
                 .await
-                .map_err(|e| DnsError {
-                    kind: DnsErrorKind::DnsResolve(Box::new(e)),
-                })?
+                .context(DnsErrorKind::DnsResolve)?
                 .iter()
                 .map(|r| r.0.into())
                 .collect(),
@@ -47,9 +46,7 @@ impl DnsResolver {
                 .resolver
                 .ipv6_lookup(host)
                 .await
-                .map_err(|e| DnsError {
-                    kind: DnsErrorKind::DnsResolve(Box::new(e)),
-                })?
+                .context(DnsErrorKind::DnsResolve)?
                 .iter()
                 .map(|r| r.0.into())
                 .collect(),
@@ -58,9 +55,7 @@ impl DnsResolver {
         if let [addr] = addrs.as_slice() {
             Ok(*addr)
         } else {
-            Err(DnsError {
-                kind: DnsErrorKind::UnexpectedResponse(addrs.len()),
-            })
+            Err(anyhow!(DnsErrorKind::UnexpectedResponse(addrs.len())))
         }
     }
 }

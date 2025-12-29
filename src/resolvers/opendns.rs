@@ -1,9 +1,9 @@
 use crate::config::IpType;
 use crate::dns::DnsResolver;
-use crate::errors::DnsError;
+use anyhow::Result;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-pub async fn wan_lookup_ip(ip_type: IpType) -> Result<IpAddr, DnsError> {
+pub async fn wan_lookup_ip(ip_type: IpType) -> Result<IpAddr> {
     let ips = match ip_type {
         IpType::V4 => [
             IpAddr::V4(Ipv4Addr::new(208, 67, 222, 222)),
@@ -32,10 +32,18 @@ mod tests {
                 assert!(!ip.is_loopback());
             }
             Err(e) => {
-                match e.kind {
-                    DnsErrorKind::DnsResolve(e) => {
+                eprintln!("Error: {}", e);
+                let context: &DnsErrorKind = e.downcast_ref().unwrap();
+                match context {
+                    DnsErrorKind::DnsResolve => {
                         // Check if this is a "no records found" error (e.g., CGNAT scenario)
-                        if let hickory_resolver::ResolveErrorKind::Proto(proto_err) = e.kind() {
+                        if let hickory_resolver::ResolveErrorKind::Proto(proto_err) = e
+                            .source()
+                            .unwrap()
+                            .downcast_ref::<hickory_resolver::ResolveError>()
+                            .unwrap()
+                            .kind()
+                        {
                             if proto_err.is_no_records_found() {
                                 // This is fine, just means we're behind a CGNAT
                                 return;
@@ -61,10 +69,18 @@ mod tests {
                 assert!(!ip.is_loopback());
             }
             Err(e) => {
-                match e.kind {
-                    DnsErrorKind::DnsResolve(e) => {
+                eprintln!("Error: {}", e);
+                let context: &DnsErrorKind = e.downcast_ref().unwrap();
+                match context {
+                    DnsErrorKind::DnsResolve => {
                         // Check if this is a "no records found" error (e.g., CGNAT scenario)
-                        if let hickory_resolver::ResolveErrorKind::Proto(proto_err) = e.kind() {
+                        if let hickory_resolver::ResolveErrorKind::Proto(proto_err) = e
+                            .source()
+                            .unwrap()
+                            .downcast_ref::<hickory_resolver::ResolveError>()
+                            .unwrap()
+                            .kind()
+                        {
                             if proto_err.is_no_records_found() {
                                 // This is fine, just means we're behind a CGNAT
                                 return;

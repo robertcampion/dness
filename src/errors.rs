@@ -1,6 +1,4 @@
 use anyhow::Error;
-use hickory_resolver::ResolveError;
-use std::error;
 use std::fmt;
 
 #[derive(Debug)]
@@ -36,8 +34,8 @@ pub fn message(msg: String) -> Error {
     Error::msg(msg)
 }
 
-pub fn dns(source: DnsError) -> Error {
-    Error::from(source).context(DnessErrorKind::Dns)
+pub fn dns(source: Error) -> Error {
+    source.context(DnessErrorKind::Dns)
 }
 
 impl fmt::Display for DnessErrorKind {
@@ -61,29 +59,15 @@ impl fmt::Display for DnessErrorKind {
 }
 
 #[derive(Debug)]
-pub struct DnsError {
-    pub kind: DnsErrorKind,
-}
-
-#[derive(Debug)]
 pub enum DnsErrorKind {
-    DnsResolve(Box<ResolveError>),
+    DnsResolve,
     UnexpectedResponse(usize),
 }
 
-impl error::Error for DnsError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self.kind {
-            DnsErrorKind::DnsResolve(ref e) => Some(e.as_ref()),
-            DnsErrorKind::UnexpectedResponse(_) => None,
-        }
-    }
-}
-
-impl fmt::Display for DnsError {
+impl fmt::Display for DnsErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.kind {
-            DnsErrorKind::DnsResolve(_) => write!(f, "could not resolve via dns"),
+        match self {
+            DnsErrorKind::DnsResolve => write!(f, "could not resolve via dns"),
             DnsErrorKind::UnexpectedResponse(results) => {
                 write!(f, "unexpected number of results: {results}")
             }

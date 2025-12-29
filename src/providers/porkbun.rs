@@ -1,6 +1,6 @@
 use crate::config::{IpType, PorkbunConfig};
 use crate::core::Updates;
-use crate::errors::DnessErrorKind;
+use crate::errors::HttpError;
 use anyhow::{Context as _, Result};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
@@ -80,21 +80,12 @@ impl PorkbunClient<'_> {
             })
             .send()
             .await
-            .context(DnessErrorKind::send_http(
-                &post_url,
-                "porkbun fetch records",
-            ))?
+            .context(HttpError::send(&post_url, "porkbun fetch records"))?
             .error_for_status()
-            .context(DnessErrorKind::bad_response(
-                &post_url,
-                "porkbun fetch records",
-            ))?
+            .context(HttpError::bad_response(&post_url, "porkbun fetch records"))?
             .json::<PorkbunResponse>()
             .await
-            .context(DnessErrorKind::deserialize(
-                &post_url,
-                "porkbun fetch records",
-            ))?
+            .context(HttpError::deserialize(&post_url, "porkbun fetch records"))?
             .records
             .into_iter()
             .filter(|r| r.r#type == ip_type.record_type())
@@ -117,15 +108,9 @@ impl PorkbunClient<'_> {
             })
             .send()
             .await
-            .context(DnessErrorKind::send_http(
-                &post_url,
-                "porkbun update records",
-            ))?
+            .context(HttpError::send(&post_url, "porkbun update records"))?
             .error_for_status()
-            .context(DnessErrorKind::bad_response(
-                &post_url,
-                "porkbun update records",
-            ))?;
+            .context(HttpError::bad_response(&post_url, "porkbun update records"))?;
 
         Ok(())
     }

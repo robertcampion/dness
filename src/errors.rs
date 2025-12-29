@@ -20,53 +20,58 @@ pub fn format_error(err: anyhow::Error, context: fmt::Arguments) -> String {
 }
 
 #[derive(Debug)]
-pub enum DnessErrorKind {
-    SendHttp { url: String, context: String },
-    BadResponse { url: String, context: String },
-    Deserialize { url: String, context: String },
-    Dns,
+pub struct HttpError {
+    kind: HttpErrorKind,
+    url: String,
+    context: String,
 }
 
-impl DnessErrorKind {
-    pub fn send_http(url: &str, context: &str) -> Self {
-        Self::SendHttp {
+#[derive(Debug)]
+pub enum HttpErrorKind {
+    Send,
+    BadResponse,
+    Deserialize,
+}
+
+impl HttpError {
+    pub fn send(url: &str, context: &str) -> Self {
+        Self {
+            kind: HttpErrorKind::Send,
             url: String::from(url),
             context: String::from(context),
         }
     }
 
     pub fn bad_response(url: &str, context: &str) -> Self {
-        Self::BadResponse {
+        Self {
+            kind: HttpErrorKind::BadResponse,
             url: String::from(url),
             context: String::from(context),
         }
     }
 
     pub fn deserialize(url: &str, context: &str) -> Self {
-        Self::Deserialize {
+        Self {
+            kind: HttpErrorKind::Deserialize,
             url: String::from(url),
             context: String::from(context),
         }
     }
 }
 
-impl fmt::Display for DnessErrorKind {
+impl fmt::Display for HttpError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DnessErrorKind::SendHttp { url, context, .. } => write!(
-                f,
-                "unable to send http request for {context}: url attempted: {url}"
-            ),
-            DnessErrorKind::BadResponse { url, context, .. } => write!(
-                f,
-                "received bad http response for {context}: url attempted: {url}"
-            ),
-            DnessErrorKind::Deserialize { url, context, .. } => write!(
-                f,
-                "unable to deserialize response for {context}: url attempted: {url}"
-            ),
-            DnessErrorKind::Dns => write!(f, "dns lookup"),
-        }
+        write!(
+            f,
+            "{} for {}: url attempted: {}",
+            match self.kind {
+                HttpErrorKind::Send => "unable to send http request",
+                HttpErrorKind::BadResponse => "received bad http response",
+                HttpErrorKind::Deserialize => "unable to deserialize response",
+            },
+            self.context,
+            self.url
+        )
     }
 }
 

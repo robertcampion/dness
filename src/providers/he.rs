@@ -1,7 +1,7 @@
 use crate::config::HeConfig;
 use crate::core::Updates;
 use crate::dns::DnsResolver;
-use crate::errors::DnessErrorKind;
+use crate::errors::HttpError;
 use anyhow::{anyhow, Context as _, Result};
 use log::{info, warn};
 use std::net::IpAddr;
@@ -34,12 +34,12 @@ impl HeProvider<'_> {
             .form(&params)
             .send()
             .await
-            .context(DnessErrorKind::send_http(&url, "he update"))?
+            .context(HttpError::send(&url, "he update"))?
             .error_for_status()
-            .context(DnessErrorKind::bad_response(&url, "he update"))?
+            .context(HttpError::bad_response(&url, "he update"))?
             .text()
             .await
-            .context(DnessErrorKind::deserialize(&url, "he update"))?;
+            .context(HttpError::deserialize(&url, "he update"))?;
 
         if !response.contains("good") && !response.contains("nochg") {
             Err(anyhow!("expected zero errors, but received: {response}"))

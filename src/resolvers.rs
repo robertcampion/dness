@@ -2,7 +2,6 @@ mod ipify;
 mod opendns;
 
 use crate::config::{DnsConfig, IpType, ResolverConfig};
-use crate::errors::DnessErrorKind;
 use anyhow::{Context as _, Result};
 use std::net::IpAddr;
 
@@ -13,9 +12,7 @@ pub async fn resolve_ip(
     ip_type: IpType,
 ) -> Result<IpAddr> {
     match config.ip_resolver {
-        ResolverConfig::OpenDns => opendns::wan_lookup_ip(ip_type)
-            .await
-            .context(DnessErrorKind::Dns),
+        ResolverConfig::OpenDns => opendns::wan_lookup_ip(ip_type).await.context("dns lookup"),
         ResolverConfig::Ipify => ipify::ipify_resolve_ip(client, ip_type).await,
     }
 }

@@ -1,7 +1,7 @@
 use crate::config::{IpType, NamecheapConfig};
 use crate::core::Updates;
 use crate::dns::DnsResolver;
-use crate::errors::DnessErrorKind;
+use crate::errors::HttpError;
 use anyhow::{anyhow, Context as _, Result};
 use log::{info, warn};
 use std::net::{IpAddr, Ipv4Addr};
@@ -28,12 +28,12 @@ impl NamecheapProvider<'_> {
             ])
             .send()
             .await
-            .context(DnessErrorKind::send_http(&get_url, "namecheap update"))?
+            .context(HttpError::send(&get_url, "namecheap update"))?
             .error_for_status()
-            .context(DnessErrorKind::bad_response(&get_url, "namecheap update"))?
+            .context(HttpError::bad_response(&get_url, "namecheap update"))?
             .text()
             .await
-            .context(DnessErrorKind::deserialize(&get_url, "namecheap update"))?;
+            .context(HttpError::deserialize(&get_url, "namecheap update"))?;
 
         if !response.contains("<ErrCount>0</ErrCount>") {
             Err(anyhow!("expected zero errors, but received: {response}"))

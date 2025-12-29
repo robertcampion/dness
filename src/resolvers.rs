@@ -12,7 +12,9 @@ pub async fn resolve_ip(
     ip_type: IpType,
 ) -> Result<IpAddr, DnessError> {
     Ok(match config.ip_resolver {
-        ResolverConfig::OpenDns => opendns::wan_lookup_ip(ip_type).await?,
+        ResolverConfig::OpenDns => opendns::wan_lookup_ip(ip_type)
+            .await
+            .map_err(DnessError::dns)?,
         ResolverConfig::Ipify => ipify::ipify_resolve_ip(client, ip_type).await?,
     })
 }

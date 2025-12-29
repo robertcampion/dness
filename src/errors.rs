@@ -54,10 +54,8 @@ impl DnessError {
             source: None,
         }
     }
-}
 
-impl From<DnsError> for DnessError {
-    fn from(source: DnsError) -> Self {
+    pub fn dns(source: DnsError) -> Self {
         DnessError {
             kind: DnessErrorKind::Dns,
             source: Some(Box::new(source)),

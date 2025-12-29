@@ -1,7 +1,7 @@
+use anyhow::Result;
+
 use crate::config::DynuConfig;
-use crate::errors::HttpError;
 use crate::providers::{DnsLookupConfig, DnsLookupProvider};
-use anyhow::{anyhow, Context as _, Result};
 use std::net::IpAddr;
 
 #[derive(Debug)]
@@ -12,7 +12,11 @@ pub struct DynuProvider<'a> {
 }
 
 impl DnsLookupProvider for DynuProvider<'_> {
-    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
+    fn name() -> &'static str {
+        "dynu"
+    }
+
+    fn create_request(&self, record: &str, wan: IpAddr) -> Result<reqwest::RequestBuilder> {
         let request = self
             .client
             .get(&self.get_url)
@@ -30,21 +34,11 @@ impl DnsLookupProvider for DynuProvider<'_> {
             request
         };
 
-        let response = request
-            .send()
-            .await
-            .context(HttpError::send(&self.get_url, "dynu update"))?
-            .error_for_status()
-            .context(HttpError::bad_response(&self.get_url, "dynu update"))?
-            .text()
-            .await
-            .context(HttpError::deserialize(&self.get_url, "dynu update"))?;
+        Ok(request)
+    }
 
-        if !response.contains("nochg") && !response.contains("good") {
-            Err(anyhow!("expected zero errors, but received: {response}"))
-        } else {
-            Ok(())
-        }
+    fn response_ok(response: &str) -> bool {
+        response.contains("nochg") || response.contains("good")
     }
 }
 

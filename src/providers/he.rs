@@ -1,7 +1,6 @@
 use crate::config::HeConfig;
-use crate::errors::HttpError;
 use crate::providers::{DnsLookupConfig, DnsLookupProvider};
-use anyhow::{anyhow, Context as _, Result};
+use anyhow::Result;
 use std::net::IpAddr;
 
 #[derive(Debug)]
@@ -12,8 +11,12 @@ pub struct HeProvider<'a> {
 }
 
 impl DnsLookupProvider for HeProvider<'_> {
+    fn name() -> &'static str {
+        "he"
+    }
+
     /// <https://dns.he.net/docs.html>
-    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
+    fn create_request(&self, record: &str, wan: IpAddr) -> Result<reqwest::RequestBuilder> {
         let host = if record == "@" {
             &self.config.hostname
         } else {
@@ -34,21 +37,11 @@ impl DnsLookupProvider for HeProvider<'_> {
                 ("myip", &wan),
             ));
 
-        let response = request
-            .send()
-            .await
-            .context(HttpError::send(&self.get_url, "he update"))?
-            .error_for_status()
-            .context(HttpError::bad_response(&self.get_url, "he update"))?
-            .text()
-            .await
-            .context(HttpError::deserialize(&self.get_url, "he update"))?;
+        Ok(request)
+    }
 
-        if !response.contains("good") && !response.contains("nochg") {
-            Err(anyhow!("expected zero errors, but received: {response}"))
-        } else {
-            Ok(())
-        }
+    fn response_ok(response: &str) -> bool {
+        response.contains("good") || response.contains("nochg")
     }
 }
 

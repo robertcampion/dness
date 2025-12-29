@@ -1,7 +1,6 @@
 use crate::config::NamecheapConfig;
-use crate::errors::HttpError;
 use crate::providers::{DnsLookupConfig, DnsLookupProvider};
-use anyhow::{anyhow, Context as _, Result};
+use anyhow::{anyhow, Result};
 use std::net::IpAddr;
 
 #[derive(Debug)]
@@ -12,8 +11,11 @@ pub struct NamecheapProvider<'a> {
 }
 
 impl DnsLookupProvider for NamecheapProvider<'_> {
+    fn name() -> &'static str {
+        "namecheap"
+    }
     /// <https://www.namecheap.com/support/knowledgebase/article.aspx/29/11/how-do-i-use-a-browser-to-dynamically-update-the-hosts-ip>
-    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
+    fn create_request(&self, record: &str, wan: IpAddr) -> Result<reqwest::RequestBuilder> {
         let IpAddr::V4(wan) = wan else {
             return Err(anyhow!("IPv6 not supported for Namecheap"));
         };
@@ -25,21 +27,11 @@ impl DnsLookupProvider for NamecheapProvider<'_> {
             ("ip", &wan),
         ));
 
-        let response = request
-            .send()
-            .await
-            .context(HttpError::send(&self.get_url, "namecheap update"))?
-            .error_for_status()
-            .context(HttpError::bad_response(&self.get_url, "namecheap update"))?
-            .text()
-            .await
-            .context(HttpError::deserialize(&self.get_url, "namecheap update"))?;
+        Ok(request)
+    }
 
-        if !response.contains("<ErrCount>0</ErrCount>") {
-            Err(anyhow!("expected zero errors, but received: {response}"))
-        } else {
-            Ok(())
-        }
+    fn response_ok(response: &str) -> bool {
+        response.contains("<ErrCount>0</ErrCount>")
     }
 }
 

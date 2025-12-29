@@ -6,10 +6,10 @@ mod namecheap;
 mod noip;
 mod porkbun;
 
-use crate::config::DomainConfig;
 use crate::core::Updates;
 use crate::dns::DnsResolver;
-use anyhow::Result;
+use crate::{config::DomainConfig, errors::HttpError};
+use anyhow::{anyhow, Context as _, Result};
 use log::{info, warn};
 use std::net::IpAddr;
 
@@ -97,5 +97,34 @@ trait DnsLookupConfig<'a> {
 }
 
 trait DnsLookupProvider {
-    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()>;
+    fn name() -> &'static str;
+    fn create_request(&self, record: &str, wan: IpAddr) -> Result<reqwest::RequestBuilder>;
+    fn response_ok(response: &str) -> bool;
+
+    async fn update_domain(&self, record: &str, wan: IpAddr) -> Result<()> {
+        let (client, request) = self.create_request(record, wan)?.build_split();
+        let context = || format!("{} update", Self::name());
+
+        let request = request.map_err(|e| {
+            let url = e.url().map_or("", |u| u.as_str()).to_owned();
+            anyhow!(e).context(HttpError::send(&url, &context()))
+        })?;
+        let url = request.url().as_str().to_owned();
+
+        let response = client
+            .execute(request)
+            .await
+            .with_context(|| HttpError::send(&url, &context()))?
+            .error_for_status()
+            .with_context(|| HttpError::bad_response(&url, &context()))?
+            .text()
+            .await
+            .with_context(|| HttpError::deserialize(&url, &context()))?;
+
+        if !Self::response_ok(&response) {
+            Err(anyhow!("expected zero errors, but received: {response}"))
+        } else {
+            Ok(())
+        }
+    }
 }

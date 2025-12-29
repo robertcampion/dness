@@ -1,5 +1,7 @@
+use crate::config::NoIpConfig;
+use crate::core::Updates;
+use crate::dns::DnsResolver;
 use crate::errors::DnessErrorKind;
-use crate::{config::NoIpConfig, core::Updates, dns::DnsResolver};
 use anyhow::{anyhow, Context as _, Result};
 use log::{info, warn};
 use std::net::IpAddr;
@@ -87,8 +89,7 @@ mod tests {
 
     macro_rules! noip_server {
         () => {{
-            use rouille::Response;
-            use rouille::Server;
+            use rouille::{Response, Server};
 
             let server = Server::new("localhost:0", |request| match request.url().as_str() {
                 "/nic/update" => Response::from_data("text/plain", b"good 2.2.2.2".to_vec()),

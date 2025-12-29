@@ -1,13 +1,11 @@
-use crate::config::IpType;
-use crate::config::PorkbunConfig;
+use crate::config::{IpType, PorkbunConfig};
 use crate::core::Updates;
 use crate::errors::DnessErrorKind;
 use anyhow::{Context as _, Result};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeMap as Map;
-use std::collections::HashSet;
+use std::collections::{BTreeMap as Map, HashSet};
 use std::net::IpAddr;
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -279,8 +277,7 @@ mod tests {
 
     macro_rules! porkbun_rouille_server {
         () => {{
-            use rouille::Response;
-            use rouille::Server;
+            use rouille::{Response, Server};
 
             let server = Server::new("localhost:0", |request| match request.url().as_str() {
                 "/api/json/v3/dns/retrieve/example.com" => Response::from_data(

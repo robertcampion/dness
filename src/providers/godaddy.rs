@@ -1,13 +1,11 @@
-use crate::config::GoDaddyConfig;
-use crate::config::IpType;
+use crate::config::{GoDaddyConfig, IpType};
 use crate::core::Updates;
 use crate::errors::DnessErrorKind;
 use anyhow::{Context as _, Result};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeMap as Map;
-use std::collections::HashSet;
+use std::collections::{BTreeMap as Map, HashSet};
 use std::net::IpAddr;
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]

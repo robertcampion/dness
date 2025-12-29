@@ -107,8 +107,7 @@ mod tests {
 
     macro_rules! namecheap_server {
         () => {{
-            use rouille::Response;
-            use rouille::Server;
+            use rouille::{Response, Server};
 
             let server = Server::new("localhost:0", |request| match request.url().as_str() {
                 "/update" => Response::from_data(

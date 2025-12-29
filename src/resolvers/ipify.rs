@@ -1,8 +1,7 @@
-use std::net::IpAddr;
-
 use crate::config::IpType;
 use crate::errors::DnessErrorKind;
 use anyhow::{Context as _, Result};
+use std::net::IpAddr;
 
 pub async fn ipify_resolve_ip(client: &reqwest::Client, ip_type: IpType) -> Result<IpAddr> {
     let ipify_url = match ip_type {

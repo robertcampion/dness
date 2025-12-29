@@ -25,13 +25,13 @@ impl DnsLookupProvider for HeProvider<'_> {
 
         let request = self
             .client
-            .post(&self.get_url)
+            .get(&self.get_url)
             // he.net closes the connection without sending a Connection: close
             // header. So we need to intentionally downgrade from HTTP/1.1,
             // where keep-alive is the default, to HTTP/1.0 so that reqwest will
             // expect this behavior and not attempt to re-use the connection.
             .version(reqwest::Version::HTTP_10)
-            .form(&(
+            .query(&(
                 ("hostname", &host),
                 ("password", &self.config.password),
                 ("myip", &wan),

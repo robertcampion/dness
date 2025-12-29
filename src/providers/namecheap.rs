@@ -2,7 +2,7 @@ use crate::config::{IpType, NamecheapConfig};
 use crate::core::Updates;
 use crate::dns::DnsResolver;
 use crate::errors;
-use crate::errors::DnessError;
+use anyhow::Result;
 use log::{info, warn};
 use std::net::{IpAddr, Ipv4Addr};
 
@@ -14,7 +14,7 @@ pub struct NamecheapProvider<'a> {
 
 impl NamecheapProvider<'_> {
     /// <https://www.namecheap.com/support/knowledgebase/article.aspx/29/11/how-do-i-use-a-browser-to-dynamically-update-the-hosts-ip>
-    pub async fn update_domain(&self, host: &str, wan: Ipv4Addr) -> Result<(), DnessError> {
+    pub async fn update_domain(&self, host: &str, wan: Ipv4Addr) -> Result<()> {
         let base = self.config.base_url.trim_end_matches('/').to_string();
         let get_url = format!("{base}/update");
         let response = self
@@ -49,7 +49,7 @@ pub async fn update_domains(
     client: &reqwest::Client,
     config: &NamecheapConfig,
     wan: IpAddr,
-) -> Result<Updates, DnessError> {
+) -> Result<Updates> {
     // Use cloudflare's DNS to query all the configured records. Ideally we'd use dns
     // over tls for privacy purposes but that feature is experimental and we don't want to rely on
     // experimental features here: https://github.com/bluejekyll/trust-dns/issues/989

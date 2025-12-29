@@ -1,5 +1,6 @@
 use crate::errors;
-use crate::{config::NoIpConfig, core::Updates, dns::DnsResolver, errors::DnessError};
+use crate::{config::NoIpConfig, core::Updates, dns::DnsResolver};
+use anyhow::Result;
 use log::{info, warn};
 use std::net::IpAddr;
 
@@ -11,7 +12,7 @@ pub struct NoIpProvider<'a> {
 
 impl NoIpProvider<'_> {
     /// <https://www.noip.com/integrate/request>
-    pub async fn update_domain(&self, wan: IpAddr) -> Result<(), DnessError> {
+    pub async fn update_domain(&self, wan: IpAddr) -> Result<()> {
         let base = self.config.base_url.trim_end_matches('/');
         let get_url = format!("{base}/nic/update");
         let response = self
@@ -45,7 +46,7 @@ pub async fn update_domains(
     client: &reqwest::Client,
     config: &NoIpConfig,
     wan: IpAddr,
-) -> Result<Updates, DnessError> {
+) -> Result<Updates> {
     let resolver = DnsResolver::create_cloudflare();
     let dns_query = format!("{}.", &config.hostname);
     let response = resolver.ip_lookup(&dns_query, wan.into()).await;

@@ -2,7 +2,7 @@ use crate::config::GoDaddyConfig;
 use crate::config::IpType;
 use crate::core::Updates;
 use crate::errors;
-use crate::errors::DnessError;
+use anyhow::Result;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -43,7 +43,7 @@ impl GoClient<'_> {
         format!("sso-key {}:{}", self.key, self.secret)
     }
 
-    async fn fetch_records(&self, ip_type: IpType) -> Result<Vec<GoRecord>, DnessError> {
+    async fn fetch_records(&self, ip_type: IpType) -> Result<Vec<GoRecord>> {
         let get_url = format!(
             "{}/v1/domains/{}/records/{}",
             self.base_url,
@@ -65,7 +65,7 @@ impl GoClient<'_> {
         Ok(response)
     }
 
-    async fn update_record(&self, record: &GoRecord, addr: IpAddr) -> Result<(), DnessError> {
+    async fn update_record(&self, record: &GoRecord, addr: IpAddr) -> Result<()> {
         let put_url = format!(
             "{}/v1/domains/{}/records/{}/{}",
             self.base_url,
@@ -90,11 +90,7 @@ impl GoClient<'_> {
         Ok(())
     }
 
-    async fn ensure_current_ip(
-        &self,
-        record: &GoRecord,
-        addr: IpAddr,
-    ) -> Result<Updates, DnessError> {
+    async fn ensure_current_ip(&self, record: &GoRecord, addr: IpAddr) -> Result<Updates> {
         let mut current = 0;
         let mut updated = 0;
         match record.data.parse::<IpAddr>() {
@@ -145,7 +141,7 @@ pub async fn update_domains(
     client: &reqwest::Client,
     config: &GoDaddyConfig,
     addr: IpAddr,
-) -> Result<Updates, DnessError> {
+) -> Result<Updates> {
     let go_client = GoClient {
         base_url: config.base_url.trim_end_matches('/').to_string(),
         domain: config.domain.clone(),

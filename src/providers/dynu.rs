@@ -2,7 +2,7 @@ use crate::config::DynuConfig;
 use crate::core::Updates;
 use crate::dns::DnsResolver;
 use crate::errors;
-use crate::errors::DnessError;
+use anyhow::Result;
 use log::{info, warn};
 use std::net::IpAddr;
 
@@ -13,7 +13,7 @@ pub struct DynuProvider<'a> {
 }
 
 impl DynuProvider<'_> {
-    pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<(), DnessError> {
+    pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<()> {
         let base = self.config.base_url.trim_end_matches('/');
         let get_url = format!("{base}/nic/update");
         let mut params = vec![("hostname", self.config.hostname.clone())];
@@ -64,7 +64,7 @@ pub async fn update_domains(
     client: &reqwest::Client,
     config: &DynuConfig,
     wan: IpAddr,
-) -> Result<Updates, DnessError> {
+) -> Result<Updates> {
     let resolver = DnsResolver::create_cloudflare();
     let dynu_provider = DynuProvider { client, config };
 

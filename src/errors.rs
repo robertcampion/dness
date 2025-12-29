@@ -11,34 +11,32 @@ pub enum DnessErrorKind {
     Dns,
 }
 
-pub type DnessError = Error;
-
-pub fn send_http(url: &str, context: &str, source: reqwest::Error) -> DnessError {
+pub fn send_http(url: &str, context: &str, source: reqwest::Error) -> Error {
     Error::from(source).context(DnessErrorKind::SendHttp {
         url: String::from(url),
         context: String::from(context),
     })
 }
 
-pub fn bad_response(url: &str, context: &str, source: reqwest::Error) -> DnessError {
+pub fn bad_response(url: &str, context: &str, source: reqwest::Error) -> Error {
     Error::from(source).context(DnessErrorKind::BadResponse {
         url: String::from(url),
         context: String::from(context),
     })
 }
 
-pub fn deserialize(url: &str, context: &str, source: reqwest::Error) -> DnessError {
+pub fn deserialize(url: &str, context: &str, source: reqwest::Error) -> Error {
     Error::from(source).context(DnessErrorKind::Deserialize {
         url: String::from(url),
         context: String::from(context),
     })
 }
 
-pub fn message(msg: String) -> DnessError {
+pub fn message(msg: String) -> Error {
     Error::msg(msg)
 }
 
-pub fn dns(source: DnsError) -> DnessError {
+pub fn dns(source: DnsError) -> Error {
     Error::from(source).context(DnessErrorKind::Dns)
 }
 

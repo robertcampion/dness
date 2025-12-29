@@ -2,7 +2,7 @@ use crate::config::HeConfig;
 use crate::core::Updates;
 use crate::dns::DnsResolver;
 use crate::errors;
-use crate::errors::DnessError;
+use anyhow::Result;
 use log::{info, warn};
 use std::net::IpAddr;
 
@@ -14,7 +14,7 @@ pub struct HeProvider<'a> {
 
 impl HeProvider<'_> {
     /// <https://dns.he.net/docs.html>
-    pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<(), DnessError> {
+    pub async fn update_domain(&self, host: &str, wan: IpAddr) -> Result<()> {
         let base = self.config.base_url.trim_end_matches('/');
         let url = format!("{base}/nic/update");
         let params = [
@@ -55,7 +55,7 @@ pub async fn update_domains(
     client: &reqwest::Client,
     config: &HeConfig,
     wan: IpAddr,
-) -> Result<Updates, DnessError> {
+) -> Result<Updates> {
     // uses the same strategy as namecheap where we get the current records
     // via dns and check if they need to be updated
     let resolver = DnsResolver::create_cloudflare();

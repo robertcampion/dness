@@ -2,7 +2,7 @@ use crate::config::IpType;
 use crate::config::PorkbunConfig;
 use crate::core::Updates;
 use crate::errors;
-use crate::errors::DnessError;
+use anyhow::Result;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -71,7 +71,7 @@ impl PorkbunClient<'_> {
         crate::core::log_missing_domains(&self.records, &actual, "Porkbun", &self.domain)
     }
 
-    async fn fetch_records(&self, ip_type: IpType) -> Result<Vec<PorkbunRecord>, DnessError> {
+    async fn fetch_records(&self, ip_type: IpType) -> Result<Vec<PorkbunRecord>> {
         let post_url = format!("{}/dns/retrieve/{}", self.base_url, self.domain);
         let response = self
             .client
@@ -95,7 +95,7 @@ impl PorkbunClient<'_> {
         Ok(response)
     }
 
-    async fn update_record(&self, record: &PorkbunRecord, addr: IpAddr) -> Result<(), DnessError> {
+    async fn update_record(&self, record: &PorkbunRecord, addr: IpAddr) -> Result<()> {
         let post_url = format!("{}/dns/edit/{}/{}", self.base_url, self.domain, record.id);
 
         self.client
@@ -117,11 +117,7 @@ impl PorkbunClient<'_> {
         Ok(())
     }
 
-    async fn ensure_current_ip(
-        &self,
-        record: &PorkbunRecord,
-        addr: IpAddr,
-    ) -> Result<Updates, DnessError> {
+    async fn ensure_current_ip(&self, record: &PorkbunRecord, addr: IpAddr) -> Result<Updates> {
         let mut current = 0;
         let mut updated = 0;
         match record.content.parse::<IpAddr>() {
@@ -173,7 +169,7 @@ pub async fn update_domains(
     client: &reqwest::Client,
     config: &PorkbunConfig,
     addr: IpAddr,
-) -> Result<Updates, DnessError> {
+) -> Result<Updates> {
     let porkbun_client = PorkbunClient {
         base_url: config.base_url.trim_end_matches('/').to_string(),
         domain: config.domain.clone(),

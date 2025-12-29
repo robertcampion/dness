@@ -2,7 +2,7 @@ use crate::config::{IpType, NamecheapConfig};
 use crate::core::Updates;
 use crate::dns::DnsResolver;
 use crate::errors;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use log::{info, warn};
 use std::net::{IpAddr, Ipv4Addr};
 
@@ -36,9 +36,7 @@ impl NamecheapProvider<'_> {
             .map_err(|e| errors::deserialize(&get_url, "namecheap update", e))?;
 
         if !response.contains("<ErrCount>0</ErrCount>") {
-            Err(errors::message(format!(
-                "expected zero errors, but received: {response}",
-            )))
+            Err(anyhow!("expected zero errors, but received: {response}"))
         } else {
             Ok(())
         }
@@ -60,9 +58,7 @@ pub async fn update_domains(
     // any issues with setting the namecheap record to an unchanged value, but it is less than
     // ideal. Namecheap does have a dns api that may be worth exploring.
     let IpAddr::V4(wan) = wan else {
-        return Err(errors::message(String::from(
-            "IPv6 not supported for Namecheap",
-        )));
+        return Err(anyhow!("IPv6 not supported for Namecheap"));
     };
     let resolver = DnsResolver::create_cloudflare();
     let namecheap = NamecheapProvider { client, config };

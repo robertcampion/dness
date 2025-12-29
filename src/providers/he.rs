@@ -2,7 +2,7 @@ use crate::config::HeConfig;
 use crate::core::Updates;
 use crate::dns::DnsResolver;
 use crate::errors;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use log::{info, warn};
 use std::net::IpAddr;
 
@@ -42,9 +42,7 @@ impl HeProvider<'_> {
             .map_err(|e| errors::deserialize(&url, "he update", e))?;
 
         if !response.contains("good") && !response.contains("nochg") {
-            Err(errors::message(format!(
-                "expected zero errors, but received: {response}"
-            )))
+            Err(anyhow!("expected zero errors, but received: {response}"))
         } else {
             Ok(())
         }

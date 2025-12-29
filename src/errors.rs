@@ -30,14 +30,6 @@ pub fn deserialize(url: &str, context: &str, source: reqwest::Error) -> Error {
     })
 }
 
-pub fn message(msg: String) -> Error {
-    Error::msg(msg)
-}
-
-pub fn dns(source: Error) -> Error {
-    source.context(DnessErrorKind::Dns)
-}
-
 impl fmt::Display for DnessErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

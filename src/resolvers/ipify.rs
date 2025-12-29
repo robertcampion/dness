@@ -22,6 +22,6 @@ pub async fn ipify_resolve_ip(client: &reqwest::Client, ip_type: IpType) -> Resu
 
     let ip = ip_text
         .parse::<IpAddr>()
-        .map_err(|_| errors::message(format!("unable to parse {} as an ip", &ip_text)))?;
+        .map_err(|_| anyhow::anyhow!("unable to parse {ip_text} as an ip"))?;
     Ok(ip)
 }
